@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Todo リスト</title>
+  <meta name="description" content="シンプルで使いやすいTodoリストアプリ。本日・明日・近日・そのうちの4カテゴリでタスクを整理できます。">
+
+  <!-- SNSシェア用（OGP） -->
+  <meta property="og:title" content="Todo リスト">
+  <meta property="og:description" content="シンプルで使いやすいTodoリストアプリ。4カテゴリでタスクを整理。">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="ogp.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- アイコン -->
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007aff">
+
+  <link rel="stylesheet" href="style.css?v=19">
+</head>
+<body>
+  <header class="app-header">
+    <a class="header-archive-link" href="archive/index.html" title="振り返り">📖<span class="header-archive-text"> 振り返り</span></a>
+    <h1>Todo リスト</h1>
+    <button class="header-data-btn header-data-btn--share" id="shareBtn" title="共有コードを作って、もう一方の端末に送る">📤 共有</button>
+    <button class="header-data-btn" id="importBtn" title="共有コードやJSONファイルからデータを取り込む">取込</button>
+    <button class="header-data-btn" id="exportBtn" title="データをJSONファイルに保存">保存</button>
+    <button class="header-print-btn" onclick="window.print()" title="印刷">🖨 印刷</button>
+    <button class="header-menu-btn" id="headerMenuBtn" title="メニュー">⋯</button>
+  </header>
+
+  <nav class="mode-tabs" id="modeTabs">
+    <button class="mode-tab" data-mode="work">💼 仕事</button>
+    <button class="mode-tab" data-mode="private">🏠 プライベート</button>
+    <button class="mode-tab" data-mode="other">📦 その他</button>
+    <button class="mode-tab" data-mode="all">🌐 全部</button>
+  </nav>
+
+  <main class="app-main">
+    <details class="intro" id="introPanel">
+      <summary><span class="intro-icon">💡</span>このアプリの使い方（はじめての方へ）</summary>
+      <div class="intro-body">
+        <h4 class="intro-section-h">基本操作</h4>
+        <ul class="intro-howto">
+          <li><strong>カテゴリ</strong> ― 本日／明日／近日／そのうち で時間軸を、未処理／処理済み を保管庫として使い分けます。</li>
+          <li><strong>追加</strong> ― 各エリア下の入力欄から（Enter でも追加できます）。</li>
+          <li><strong>完了</strong> ― 行の左にある ○ をクリック。</li>
+          <li><strong>編集・削除</strong> ― タスク名をダブルクリックで編集／行にカーソルを当てると右に ✕／Ctrl・Cmd + Z で元に戻せます。</li>
+          <li><strong>並べ替え・移動</strong> ― タスクをドラッグ（スマホは長押し）して並び順やカテゴリを変更。行の右の ⋮ からもカテゴリ移動できます。</li>
+          <li><strong>モード</strong> ― 上部のタブで 仕事／プライベート／その他 の区分を切り替え。「全部」では全タスクが色ドット付きで見えます。区分の変更は ⋮ から。</li>
+          <li><strong>子タスク</strong> ― 行の右端の › で展開して、ぶら下げ追加できます。</li>
+        </ul>
+
+        <h4 class="intro-section-h">日付が変わったら（自動でタスクが動きます）</h4>
+        <ul class="intro-howto">
+          <li><strong>明日</strong> のタスク → 翌日になると <strong>本日</strong> に上がってきます</li>
+          <li><strong>本日</strong> で完了したもの → <strong>処理済み</strong> に移動</li>
+          <li><strong>本日</strong> で残ったもの → <strong>未処理</strong> に移動</li>
+          <li><strong>近日／そのうち</strong> は自動では動きません。やる気が向いたら手動で 明日／本日 にドラッグしてください</li>
+        </ul>
+
+        <h4 class="intro-section-h">W / C / M ボタンって何？</h4>
+        <p>そのタスクの<strong>性質</strong>に印をつけられます（PC版は行に常時表示、スマホ版はタスクの右端の <strong>›</strong> を押して展開すると子タスク一覧の上に表示）。複数選択OK、あとから自由に付け外しできます。</p>
+        <ul class="intro-flags">
+          <li>
+            <span class="intro-badge intro-badge--will">W</span>
+            <div class="intro-flag-text">
+              <strong>Will</strong>（やりたい）
+              <span class="intro-flag-desc">自分の意志で「やりたい」と思っていること。心が前向きに動くタスク。</span>
+            </div>
+          </li>
+          <li>
+            <span class="intro-badge intro-badge--can">C</span>
+            <div class="intro-flag-text">
+              <strong>Can</strong>（できる）
+              <span class="intro-flag-desc">段取りが見えていて、必要なリソース（権限・道具・時間など）の目処も立っている状態。</span>
+            </div>
+          </li>
+          <li>
+            <span class="intro-badge intro-badge--must">M</span>
+            <div class="intro-flag-text">
+              <strong>Must</strong>（必須）
+              <span class="intro-flag-desc">自分の立場や置かれている環境から、やらなくてはならないこと。締切や責任が背景にあるタスク。</span>
+            </div>
+          </li>
+        </ul>
+        <p class="intro-tip">印は気が向いた時に少しずつでOK。眺めていると、自分のタスクの偏りが見えて判断のヒントになります。</p>
+        <p class="intro-close-hint">読み終わったら右上の <span class="intro-close-mark">▾</span> で閉じると画面がすっきりします。</p>
+      </div>
+    </details>
+
+    <details class="intro intro--settings" id="settingsPanel">
+      <summary><span class="intro-icon">⚙️</span>詳細設定（曜日スキップなど）</summary>
+      <div class="intro-body">
+        <h4 class="intro-section-h">曜日スキップ</h4>
+        <p>
+          チェックを入れた曜日は<strong>日付の自動更新をスキップ</strong>します。<br>
+          例えば <strong>土・日</strong> にチェックを入れると、金曜日の「明日」に入れたタスクは月曜日の「本日」に持ち越されます。
+        </p>
+        <div class="settings-weekdays" id="settingsWeekdays">
+          <label class="settings-weekday settings-weekday--sun">
+            <input type="checkbox" class="settings-skip-checkbox" data-day="0">
+            <span>日</span>
+          </label>
+          <label class="settings-weekday">
+            <input type="checkbox" class="settings-skip-checkbox" data-day="1">
+            <span>月</span>
+          </label>
+          <label class="settings-weekday">
+            <input type="checkbox" class="settings-skip-checkbox" data-day="2">
+            <span>火</span>
+          </label>
+          <label class="settings-weekday">
+            <input type="checkbox" class="settings-skip-checkbox" data-day="3">
+            <span>水</span>
+          </label>
+          <label class="settings-weekday">
+            <input type="checkbox" class="settings-skip-checkbox" data-day="4">
+            <span>木</span>
+          </label>
+          <label class="settings-weekday">
+            <input type="checkbox" class="settings-skip-checkbox" data-day="5">
+            <span>金</span>
+          </label>
+          <label class="settings-weekday settings-weekday--sat">
+            <input type="checkbox" class="settings-skip-checkbox" data-day="6">
+            <span>土</span>
+          </label>
+        </div>
+        <p class="intro-tip">
+          スキップ日に開いてもタスクは動かず、次の非スキップ日に開いた時にまとめて更新されます。
+        </p>
+      </div>
+    </details>
+
+    <div class="categories-grid">
+      <section class="category" data-category="today">
+        <div class="category-title-row">
+          <h2 class="category-title">本日<span class="category-date-inline" id="todayDateLabel"></span></h2>
+          <button class="copy-cat-btn" title="本日のタスクをテキストでコピー">コピー</button>
+        </div>
+        <div class="task-list"></div>
+        <div class="task-add">
+          <input type="text" class="task-input" placeholder="タスクを追加…" autocomplete="off">
+          <button class="task-add-btn">追加</button>
+        </div>
+      </section>
+
+      <section class="category" data-category="tomorrow">
+        <div class="category-title-row">
+          <h2 class="category-title"><span id="tomorrowTitle">明日</span><span class="category-date-inline" id="tomorrowDateLabel"></span></h2>
+          <button class="copy-cat-btn" title="明日のタスクをテキストでコピー">コピー</button>
+        </div>
+        <div class="task-list"></div>
+        <div class="task-add">
+          <input type="text" class="task-input" placeholder="タスクを追加…" autocomplete="off">
+          <button class="task-add-btn">追加</button>
+        </div>
+      </section>
+
+      <section class="category" data-category="soon">
+        <div class="category-title-row">
+          <h2 class="category-title">近日</h2>
+          <button class="copy-cat-btn" title="近日のタスクをテキストでコピー">コピー</button>
+        </div>
+        <div class="task-list"></div>
+        <div class="task-add">
+          <input type="text" class="task-input" placeholder="タスクを追加…" autocomplete="off">
+          <button class="task-add-btn">追加</button>
+        </div>
+      </section>
+
+      <section class="category" data-category="someday">
+        <div class="category-title-row">
+          <h2 class="category-title">そのうち</h2>
+          <button class="copy-cat-btn" title="そのうちのタスクをテキストでコピー">コピー</button>
+        </div>
+        <div class="task-list"></div>
+        <div class="task-add">
+          <input type="text" class="task-input" placeholder="タスクを追加…" autocomplete="off">
+          <button class="task-add-btn">追加</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="categories-storage">
+      <section class="category" data-category="unprocessed">
+        <div class="category-title-row">
+          <h2 class="category-title">未処理</h2>
+          <button class="clear-all-btn" title="すべて削除">全消去</button>
+        </div>
+        <div class="task-list"></div>
+        <div class="task-add">
+          <input type="text" class="task-input" placeholder="タスクを追加…" autocomplete="off">
+          <button class="task-add-btn">追加</button>
+        </div>
+      </section>
+
+      <section class="category" data-category="done">
+        <div class="category-title-row">
+          <h2 class="category-title">処理済み</h2>
+          <button class="clear-all-btn" title="すべて削除">全消去</button>
+        </div>
+        <div class="task-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="app.js?v=13"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function() {});
+    }
+  </script>
+</body>
+</html>

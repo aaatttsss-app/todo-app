@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>振り返り | Todo リスト</title>
+  <meta name="description" content="完了したタスクの振り返り。日付・週・月・年で見返せます。">
+  <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="archive.css?v=2">
+</head>
+<body>
+  <header class="arch-header">
+    <div class="arch-header-row">
+      <a class="arch-back" href="../index.html">← Todoリストへ</a>
+      <h1>📖 振り返り</h1>
+      <span class="arch-spacer"></span>
+    </div>
+    <div class="arch-sample-banner" id="sampleBanner" hidden>
+      🌱 サンプルデータを表示中。実際に使うと、ここに自分の振り返りが溜まっていきます。
+    </div>
+  </header>
+
+  <main class="arch-main">
+
+    <!-- ===== ダッシュボード ===== -->
+    <section class="arch-dashboard">
+      <div class="stat-grid">
+        <!-- data-period を付与 → クリックで WCM をその期間に絞り込む / 再クリックで全期間に戻る -->
+        <div class="stat-card stat-day" id="statCardDay" data-period="day" role="button" tabindex="0" title="クリックで WCM を昨日に絞り込み">
+          <div class="stat-icon">🌅</div>
+          <div class="stat-label">昨日</div>
+          <div class="stat-value" id="statDay">0</div>
+          <div class="stat-unit">件 完了</div>
+        </div>
+        <div class="stat-card stat-week" id="statCardWeek" data-period="week" role="button" tabindex="0" title="クリックで WCM を今週に絞り込み">
+          <div class="stat-icon">📅</div>
+          <div class="stat-label">今週</div>
+          <div class="stat-value" id="statWeek">0</div>
+          <div class="stat-unit">件 完了</div>
+        </div>
+        <div class="stat-card stat-month" id="statCardMonth" data-period="month" role="button" tabindex="0" title="クリックで WCM を今月に絞り込み">
+          <div class="stat-icon">🗓️</div>
+          <div class="stat-label">今月</div>
+          <div class="stat-value" id="statMonth">0</div>
+          <div class="stat-unit">件 完了</div>
+        </div>
+        <div class="stat-card stat-year" id="statCardYear" data-period="year" role="button" tabindex="0" title="クリックで WCM を今年に絞り込み">
+          <div class="stat-icon">🌸</div>
+          <div class="stat-label">今年</div>
+          <div class="stat-value" id="statYear">0</div>
+          <div class="stat-unit">件 完了</div>
+        </div>
+      </div>
+
+      <div class="wcm-summary">
+        <div class="wcm-summary-header">
+          <h3>性質別の内訳<span class="wcm-summary-sub" id="wcmPeriodLabel">（全期間）</span></h3>
+          <span class="wcm-total" id="wcmTotal">合計 0 件</span>
+        </div>
+        <div class="wcm-bars">
+          <div class="wcm-row wcm-will">
+            <span class="wcm-badge">W</span>
+            <span class="wcm-label">Will</span>
+            <div class="wcm-bar-track"><div class="wcm-bar-fill" id="wcmWillBar"></div></div>
+            <span class="wcm-count" id="wcmWillCount">0件</span>
+          </div>
+          <div class="wcm-row wcm-can">
+            <span class="wcm-badge">C</span>
+            <span class="wcm-label">Can</span>
+            <div class="wcm-bar-track"><div class="wcm-bar-fill" id="wcmCanBar"></div></div>
+            <span class="wcm-count" id="wcmCanCount">0件</span>
+          </div>
+          <div class="wcm-row wcm-must">
+            <span class="wcm-badge">M</span>
+            <span class="wcm-label">Must</span>
+            <div class="wcm-bar-track"><div class="wcm-bar-fill" id="wcmMustBar"></div></div>
+            <span class="wcm-count" id="wcmMustCount">0件</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== グラフ切り替えボタン ===== -->
+    <div class="chart-toggle-row">
+      <button id="chartToggleBtn" class="chart-toggle-btn">📈 推移グラフを見る</button>
+    </div>
+
+    <!-- ===== 折れ線グラフ（枝葉 / archive-chart.js を削除すれば一緒に消えます） ===== -->
+    <section class="arch-chart" id="archChart" hidden>
+      <div class="chart-header">
+        <h3>完了タスク 推移</h3>
+        <div class="chart-period-btns">
+          <button class="chart-period-btn active" data-days="30">30日</button>
+          <button class="chart-period-btn" data-days="90">90日</button>
+        </div>
+        <button class="chart-close-btn" id="chartClose">✕ 閉じる</button>
+      </div>
+      <div class="chart-body" id="chartBody"></div>
+    </section>
+
+    <!-- ===== カレンダー ===== -->
+    <section class="arch-calendar">
+      <div class="cal-header">
+        <button class="cal-nav" id="calPrev" title="前の月">‹</button>
+        <h3 id="calTitle">―</h3>
+        <button class="cal-nav" id="calNext" title="次の月">›</button>
+        <button class="cal-today-btn" id="calToday" title="今月へ">今月</button>
+      </div>
+      <div class="cal-weekdays">
+        <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="cal-sat">土</span><span class="cal-sun">日</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <span>少ない</span>
+        <div class="cal-legend-cells">
+          <span class="cal-legend-cell heat-0"></span>
+          <span class="cal-legend-cell heat-1"></span>
+          <span class="cal-legend-cell heat-2"></span>
+          <span class="cal-legend-cell heat-3"></span>
+          <span class="cal-legend-cell heat-4"></span>
+        </div>
+        <span>多い</span>
+      </div>
+    </section>
+
+    <!-- ===== ビュータブと一覧 ===== -->
+    <section class="arch-view">
+      <div class="view-tabs">
+        <button class="view-tab active" data-view="day">この日</button>
+        <button class="view-tab" data-view="week">この週</button>
+        <button class="view-tab" data-view="month">この月</button>
+        <button class="view-tab" data-view="year">この年</button>
+      </div>
+      <div class="view-header">
+        <h3 id="viewTitle">―</h3>
+        <span class="view-count" id="viewCount">0件</span>
+      </div>
+
+      <!-- ===== 検索エリア ===== -->
+      <div class="search-area">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" class="search-input" placeholder="処理済みタスクを検索…" autocomplete="off">
+          <button class="search-clear" id="searchClear" hidden>✕</button>
+        </div>
+        <div class="search-suggestions" id="searchSuggestions"></div>
+      </div>
+
+      <div class="task-list" id="taskList"></div>
+    </section>
+
+  </main>
+
+  <script src="archive-sample-data.js?v=1"></script>
+  <script src="archive.js?v=3"></script>
+  <script src="archive-chart.js?v=1"></script>
+</body>
+</html>

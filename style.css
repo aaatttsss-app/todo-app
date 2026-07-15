@@ -1,0 +1,1490 @@
+/* ===== Reset & Base ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: #f0f1f3;
+  color: #1d1d1f;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ===== Header ===== */
+.app-header {
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  padding: 10px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header h1 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex: 1;
+}
+
+.header-print-btn {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #555;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.header-print-btn:hover {
+  background: #f0f0f0;
+  border-color: #aaa;
+}
+
+/* ===== データ取込 / 保存ボタン ===== */
+.header-data-btn {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #555;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.header-data-btn:hover {
+  background: #f0f0f0;
+  border-color: #aaa;
+}
+
+.header-data-btn--share {
+  color: #007aff;
+  border-color: #a0c4ff;
+}
+
+.header-data-btn--share:hover {
+  background: #e8f0fe;
+  border-color: #007aff;
+  color: #005ecb;
+}
+
+/* ⋯ メニューボタン（モバイル用。PCでは非表示） */
+.header-menu-btn {
+  display: none;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  width: 34px;
+  height: 30px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #555;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== モバイルヘッダー（640px以下は ⋯ メニューに集約） ===== */
+@media (max-width: 640px) {
+  .app-header {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .app-header h1 {
+    text-align: center;
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .header-archive-text { display: none; }  /* 📖 アイコンだけに */
+  .header-data-btn,
+  .header-print-btn { display: none; }     /* ⋯ メニューに集約 */
+  .header-menu-btn { display: inline-flex; }
+}
+
+/* ===== 振り返り（アーカイヴページ）リンク ===== */
+.header-archive-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  background: #fffbf0;
+  border: 1px dashed #e6dbc0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #b89860;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.header-archive-link:hover {
+  color: #8b6e3a;
+  background: #fff8e1;
+  border-style: solid;
+}
+
+/* ===== Category title row（本日のコピーボタン用） ===== */
+.category-title-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+.category-title-row .category-title {
+  flex: 1;
+  border-bottom: none;
+}
+
+.copy-cat-btn {
+  background: none;
+  border: 1px solid #ccc;
+  color: #999;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+.copy-cat-btn:hover {
+  background: #f5f5f7;
+  border-color: #aaa;
+  color: #444;
+}
+
+.copy-cat-btn:active {
+  transform: scale(0.95);
+}
+
+.clear-all-btn {
+  background: none;
+  border: 1px solid #ccc;
+  color: #999;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 3px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.clear-all-btn:hover {
+  background: #ff3b30;
+  color: #fff;
+  border-color: #ff3b30;
+}
+
+.task-date {
+  font-size: 12px;
+  color: #bbb;
+  white-space: nowrap;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+/* ===== Main Layout ===== */
+.app-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+/* --- 2x2 Grid for main 4 categories --- */
+.categories-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+/* On narrow screens, fall back to single column */
+@media (max-width: 640px) {
+  .categories-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Grid items stretch to align tops */
+.categories-grid .category {
+  align-self: start;
+}
+
+.categories-storage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  border-top: 2px solid #ccc;
+  padding-top: 28px;
+}
+
+.categories-storage .category {
+  align-self: start;
+}
+
+@media (max-width: 640px) {
+  .categories-storage {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Category Section ===== */
+.category {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  border-left: 4px solid transparent;
+}
+
+.category-title {
+  font-size: 17px;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-bottom: 1px solid #eee;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* --- Category Colors --- */
+[data-category="today"] {
+  border-left-color: #007aff;
+}
+[data-category="today"] .category-title {
+  background: #f0f6ff;
+  color: #007aff;
+}
+
+[data-category="tomorrow"] {
+  border-left-color: #34c759;
+}
+[data-category="tomorrow"] .category-title {
+  background: #f0faf3;
+  color: #28a745;
+}
+
+[data-category="soon"] {
+  border-left-color: #ff9500;
+}
+[data-category="soon"] .category-title {
+  background: #fff8f0;
+  color: #e68600;
+}
+
+[data-category="someday"] {
+  border-left-color: #af52de;
+}
+[data-category="someday"] .category-title {
+  background: #f9f0ff;
+  color: #9b3ec1;
+}
+
+[data-category="unprocessed"] {
+  border-left-color: #ff3b30;
+}
+[data-category="unprocessed"] .category-title {
+  background: #fff0ef;
+  color: #d32f2f;
+}
+
+[data-category="done"] {
+  border-left-color: #8e8e93;
+}
+[data-category="done"] .category-title {
+  background: #f5f5f5;
+  color: #888;
+}
+
+/* ===== Task List ===== */
+.task-list {
+  min-height: 4px;
+}
+
+/* ===== Task Row（task-item と展開ボタンの横並びコンテナ） ===== */
+.task-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.task-wrapper:last-child .task-row {
+  border-bottom: none;
+}
+
+/* ===== Task Item ===== */
+.task-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.task-text {
+  flex: 1;
+  font-size: 16px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+/* ===== Completion Checkbox ===== */
+.task-check-btn {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.task-check-btn:hover {
+  border-color: #007aff;
+}
+
+.task-check-btn--checked {
+  background: #007aff;
+  border-color: #007aff;
+}
+
+.task-check-btn--checked::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  width: 6px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+/* ===== Completed Task ===== */
+.task-item--completed .task-text {
+  text-decoration: line-through;
+  color: #aaa;
+}
+
+/* ===== Inline Edit ===== */
+.task-edit-input {
+  flex: 1;
+  border: 1px solid #007aff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+  outline: none;
+  min-width: 0;
+}
+
+/* ===== Expand Button（task-row の右端、task-item の外） ===== */
+.task-expand-btn {
+  background: none;
+  border: none;
+  border-left: 1px solid #eee;
+  color: #ccc;
+  cursor: pointer;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.task-expand-btn::before {
+  content: '›';
+  display: inline-block;
+  font-size: 18px;
+  font-weight: 600;
+  transition: transform 0.15s;
+}
+
+.task-expand-btn--open::before {
+  transform: rotate(90deg);
+}
+
+.task-expand-btn:hover {
+  color: #555;
+  background: #f0f0f0;
+}
+
+/* ===== Move Button（カテゴリ移動。タッチ端末でのD&D代替・常時表示） ===== */
+.task-move-btn {
+  background: none;
+  border: none;
+  border-left: 1px solid #eee;
+  color: #bbb;
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.task-move-btn:hover {
+  color: #007aff;
+  background: #f0f0f0;
+}
+
+/* ===== 移動メニュー（ポップオーバー） ===== */
+.move-menu {
+  position: absolute;
+  z-index: 1000;
+  min-width: 154px;
+  background: #fff;
+  border: 1px solid #e2e2e6;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: moveMenuIn 0.12s ease;
+}
+
+@keyframes moveMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.move-menu-item {
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  color: #1d1d1f;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s;
+}
+
+.move-menu-item:hover {
+  background: #f0f4ff;
+  color: #007aff;
+}
+
+.move-menu-item--cat {
+  font-weight: 600;
+}
+
+.move-menu-label {
+  font-size: 11px;
+  color: #999;
+  padding: 2px 12px 4px;
+  letter-spacing: 0.04em;
+}
+
+/* ===== Delete Button（常時うっすら表示。押せる場所が見えない状態を作らない） ===== */
+.task-delete-btn {
+  background: none;
+  border: none;
+  color: #ddd;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.task-row:hover .task-delete-btn,
+.task-item--child:hover .task-delete-btn {
+  color: #999;
+}
+
+.task-delete-btn:hover {
+  color: #e55 !important;
+  background: #fee;
+}
+
+/* ===== Intro Panel（W/C/M 説明） ===== */
+.intro {
+  margin: 0 0 22px;
+  background: #fffbf0;
+  border: 1px dashed #e6dbc0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.intro > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a4a2a;
+  padding: 12px 16px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+}
+
+.intro > summary::-webkit-details-marker { display: none; }
+.intro > summary::marker { display: none; content: ""; }
+
+.intro > summary::after {
+  content: "▾";
+  margin-left: auto;
+  font-size: 12px;
+  color: #b89860;
+  transition: transform 0.2s;
+}
+
+.intro[open] > summary::after { transform: rotate(180deg); }
+
+.intro-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.intro-body {
+  padding: 4px 18px 16px;
+  border-top: 1px dashed #ebdfc5;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #4a3f28;
+}
+
+.intro-body p {
+  margin: 12px 0 10px;
+}
+
+.intro-section-h {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a4a2a;
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+}
+
+.intro-section-h:first-child {
+  margin-top: 6px;
+}
+
+.intro-howto {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.intro-howto li {
+  font-size: 13px;
+  line-height: 1.65;
+  padding-left: 14px;
+  position: relative;
+  color: #4a3f28;
+}
+
+.intro-howto li::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+  color: #b89860;
+  font-weight: 700;
+}
+
+.intro-howto li strong {
+  color: #5a4a2a;
+}
+
+.intro-flags {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.intro-flags li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.intro-flag-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.intro-flag-desc {
+  font-size: 12.5px;
+  color: #6b5a3a;
+  line-height: 1.65;
+}
+
+.intro-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1.5px solid;
+  font-family: "Hiragino Maru Gothic ProN", "Comic Sans MS", "Hiragino Sans", sans-serif;
+}
+
+.intro-badge--will { background: #eef0ff; border-color: #6366f1; color: #4338ca; }
+.intro-badge--can  { background: #d1fae5; border-color: #10b981; color: #047857; }
+.intro-badge--must { background: #ffe4e6; border-color: #ec4899; color: #be123c; }
+
+.intro-tip {
+  color: #6b5a3a;
+  font-size: 12.5px;
+  background: rgba(255,255,255,0.5);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 3px solid #d6b86a;
+}
+
+.intro-close-hint {
+  margin: 10px 0 0 !important;
+  font-size: 12px;
+  color: #a89a78;
+  text-align: right;
+  font-style: italic;
+}
+
+.intro-close-mark {
+  display: inline-block;
+  font-style: normal;
+  color: #b89860;
+  font-weight: 700;
+  margin: 0 1px;
+}
+
+/* ===== Will / Can / Must フラグボタン ===== */
+.task-flags {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.task-flag-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1.5px dashed #d6d6d6;
+  background: #fff;
+  color: #b0b0b0;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "Hiragino Maru Gothic ProN", "Comic Sans MS", "Hiragino Sans", sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  transition: transform 0.12s, background 0.15s, color 0.15s, border-color 0.15s, border-style 0.15s;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.task-flag-btn:hover {
+  border-style: solid;
+  transform: scale(1.1);
+}
+
+/* --- アクティブ時の3色（各ボタンで異なる色） --- */
+.task-flag-btn--will.task-flag-btn--on {
+  background: #eef0ff;
+  border-color: #6366f1;
+  border-style: solid;
+  color: #4338ca;
+}
+
+.task-flag-btn--can.task-flag-btn--on {
+  background: #d1fae5;
+  border-color: #10b981;
+  border-style: solid;
+  color: #047857;
+}
+
+.task-flag-btn--must.task-flag-btn--on {
+  background: #ffe4e6;
+  border-color: #ec4899;
+  border-style: solid;
+  color: #be123c;
+}
+
+/* ===== Task Add ===== */
+.task-add {
+  display: flex;
+  padding: 8px 12px;
+  gap: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.task-input {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.task-input:focus {
+  border-color: #007aff;
+}
+
+.task-add-btn {
+  background: #eef3ff;
+  color: #3a6bc0;
+  border: 1px solid #c4d4ee;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.task-add-btn:hover {
+  background: #dce8fb;
+  border-color: #3a6bc0;
+}
+
+/* ===== Children Section ===== */
+.children-section {
+  background: #f7f8fa;
+  border-top: 1px solid #e8e8ec;
+  border-left: 3px solid #dde0e6;
+  margin-left: 26px;
+  border-radius: 0 0 0 6px;
+}
+
+/* 子タスク一覧の一つ上：親タスクのW/C/M（スマホ版のみ）・区分バッジ（展開時のみ表示） */
+.child-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 6px;
+  border-bottom: 1px dashed #e2e4e9;
+}
+
+/* 区分バッジ（タップで変更可能） */
+.child-meta-space {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 0.15s, transform 0.1s;
+}
+.child-meta-space:hover { filter: brightness(1.08); }
+.child-meta-space:active { transform: scale(0.96); }
+.child-meta-space--work    { background: #5b8def; }
+.child-meta-space--private { background: #34c759; }
+.child-meta-space--other   { background: #b6a58a; }
+
+/* ===== PC / スマホ で W・C・M の表示場所を分ける ===== */
+/* PC（641px以上）: タスク行に常時表示。展開時のメタ行のW/C/Mは重複するため隠す（区分バッジは残す） */
+@media (min-width: 641px) {
+  .child-meta-row > .task-flags { display: none; }
+}
+/* スマホ（640px以下）: タスク行からは隠し、展開時のメタ行にのみ表示 */
+@media (max-width: 640px) {
+  .task-item > .task-flags { display: none; }
+}
+
+.child-list:empty::before {
+  content: "子タスクなし";
+  display: block;
+  padding: 8px 16px;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.task-item--child {
+  padding-left: 14px;
+  background: transparent;
+}
+
+.task-item--child .task-check-btn {
+  width: 16px;
+  height: 16px;
+}
+
+.task-item--child .task-check-btn--checked::after {
+  top: 2px;
+  left: 4px;
+  width: 5px;
+  height: 7px;
+}
+
+.task-item--child .task-text {
+  font-size: 15px;
+}
+
+.child-add {
+  display: flex;
+  padding: 6px 10px;
+  gap: 6px;
+  border-top: 1px solid #eee;
+}
+
+.child-input {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* ===== Drag & Drop ===== */
+.task-wrapper {
+  cursor: grab;
+}
+
+.task-wrapper:active {
+  cursor: grabbing;
+}
+
+.task-wrapper--dragging {
+  opacity: 0.35;
+}
+
+.drop-above {
+  border-top: 2px solid #007aff;
+}
+
+.drop-below {
+  border-bottom: 2px solid #007aff;
+}
+
+.task-list--drop-target {
+  background: #e8f0fe;
+  min-height: 32px;
+}
+
+/* ===== Empty State ===== */
+.task-list:empty::before {
+  content: "タスクなし";
+  display: block;
+  padding: 12px 16px;
+  color: #bbb;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* ===== 印刷スタイル ===== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm;
+  }
+
+  /* 画面UIを非表示 */
+  .app-header,
+  .header-archive-link,
+  .intro,
+  .task-add,
+  .task-delete-btn,
+  .task-expand-btn,
+  .copy-cat-btn,
+  .clear-all-btn {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    font-size: 11pt;
+  }
+
+  .app-main {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  /* メイン4カテゴリ：2×2グリッド */
+  .categories-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
+    margin-bottom: 8mm;
+  }
+
+  /* 保管領域：横並び */
+  .categories-storage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
+    border-top: 0.5pt solid #aaa;
+    padding-top: 6mm;
+    max-width: 100%;
+  }
+
+  .category {
+    border-radius: 4pt;
+    border: 0.5pt solid #ccc;
+    border-left-width: 3pt;
+    box-shadow: none;
+    page-break-inside: avoid;
+    overflow: visible;
+  }
+
+  .category-title,
+  .category-title-row .category-title {
+    font-size: 9pt;
+    padding: 4pt 8pt;
+  }
+
+  /* 印刷時にカラーバーを維持 */
+  [data-category="today"]       { border-left-color: #007aff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-category="tomorrow"]    { border-left-color: #34c759 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-category="soon"]        { border-left-color: #ff9500 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-category="someday"]     { border-left-color: #af52de !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-category="unprocessed"] { border-left-color: #ff3b30 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-category="done"]        { border-left-color: #8e8e93 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .task-item {
+    padding: 3pt 8pt;
+    gap: 5pt;
+    border-bottom: 0.3pt solid #eee;
+  }
+
+  .task-row {
+    border-bottom: 0.3pt solid #eee;
+  }
+
+  .task-wrapper:last-child .task-row {
+    border-bottom: none;
+  }
+
+  .task-text {
+    font-size: 10pt;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .task-check-btn {
+    width: 10pt;
+    height: 10pt;
+    border: 1pt solid #999;
+    flex-shrink: 0;
+  }
+
+  .task-check-btn--checked {
+    background: #007aff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 完了タスクの打ち消し線 */
+  .task-item--completed .task-text {
+    text-decoration: line-through;
+    color: #999;
+  }
+
+  /* 子タスク */
+  .children-section {
+    border-left: 2pt solid #ddd;
+    margin-left: 14pt;
+    background: none;
+  }
+
+  .task-item--child {
+    padding-left: 8pt;
+  }
+
+  .task-item--child .task-text {
+    font-size: 9pt;
+  }
+
+  .task-list:empty::before {
+    display: none;
+  }
+
+  /* 展開ボタン帯を消した後のレイアウト崩れを防ぐ */
+  .task-row {
+    display: block;
+  }
+}
+
+/* ==================================================================== */
+/* 案A: 可愛い・手書き風 装飾（枝葉）                                   */
+/* ここから下を丸ごと削除すれば元のデザインに完全に戻ります             */
+/* ==================================================================== */
+
+/* --- 全体: 丸ゴシック系フォント、温かみのある背景 --- */
+body {
+  font-family: "Hiragino Maru Gothic ProN", "ヒラギノ丸ゴ ProN", "Hiragino Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+  background: #faf6ee;
+}
+
+/* --- アプリヘッダーに小さな絵文字 --- */
+.app-header h1::before {
+  content: "📝 ";
+  margin-right: 2px;
+}
+
+/* --- カテゴリヘッダー: フォントを優しく + 絵文字 --- */
+.category-title {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-title::before {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+[data-category="today"]       .category-title::before { content: "☀️"; }
+[data-category="tomorrow"]    .category-title::before { content: "🌱"; }
+[data-category="soon"]        .category-title::before { content: "🌤️"; }
+[data-category="someday"]     .category-title::before { content: "✨"; }
+[data-category="unprocessed"] .category-title::before { content: "📥"; }
+[data-category="done"]        .category-title::before { content: "✅"; }
+
+/* --- カテゴリ枠を丸く、ヘッダー下線を点線に --- */
+.category {
+  border-radius: 16px;
+}
+
+.category-title,
+.category-title-row {
+  border-bottom-style: dashed;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+/* --- ボタン類: 角を丸く、絵文字を添える --- */
+.copy-cat-btn::before { content: "📋 "; }
+.clear-all-btn::before  { content: "🗑 "; }
+.task-add-btn::before   { content: "➕ "; }
+
+.copy-cat-btn,
+.clear-all-btn,
+.task-add-btn,
+.header-print-btn {
+  border-radius: 999px;
+}
+
+.task-input {
+  border-radius: 999px;
+  background: #fffdf7;
+}
+
+/* --- チェックボックス: 完了時を緑（やわらかい印象） --- */
+.task-check-btn {
+  border-color: #d6c7b3;
+}
+
+.task-check-btn--checked {
+  background: #34c759;
+  border-color: #34c759;
+}
+
+.task-check-btn:hover {
+  border-color: #34c759;
+}
+
+/* --- 空状態のメッセージを優しく --- */
+.task-list:empty::before {
+  content: "✿ まだタスクは無いよ";
+  font-style: normal;
+  color: #c7b8a5;
+}
+
+.child-list:empty::before {
+  content: "（子タスクはまだ無いよ）";
+}
+
+/* --- ドラッグ中のドロップインジケーターを少し可愛く --- */
+.drop-above,
+.drop-below {
+  border-top-width: 2px;
+  border-bottom-width: 2px;
+  border-color: #ff9aa2;
+}
+
+.task-list--drop-target {
+  background: #fff4e6;
+  border-radius: 8px;
+}
+
+/* --- 印刷時は装飾の絵文字を非表示にする（既存の印刷スタイルを尊重） --- */
+@media print {
+  .app-header h1::before,
+  .category-title::before,
+  .copy-cat-btn::before,
+  .clear-all-btn::before,
+  .task-add-btn::before {
+    content: none !important;
+  }
+  body {
+    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  }
+}
+
+/* ===== 本日・明日の日付ラベル（インライン） ===== */
+.category-date-inline {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #b89860;
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: "Hiragino Sans", -apple-system, sans-serif;
+  white-space: nowrap;
+}
+
+.category-date-inline:empty {
+  margin-left: 0;
+}
+
+/* ===== 詳細設定パネル（曜日スキップ） ===== */
+.intro--settings {
+  margin-top: -10px; /* intro パネルとの間隔を詰める */
+}
+
+.settings-weekdays {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 6px;
+}
+
+.settings-weekday {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px dashed #d6b86a;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #5a4a2a;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.settings-weekday:hover {
+  background: #fffbf0;
+  border-color: #b89860;
+}
+
+.settings-weekday--on {
+  background: #fff3cd;
+  border-style: solid;
+  border-color: #f9c74f;
+  color: #6b4c1a;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(249, 199, 79, 0.3);
+}
+
+.settings-weekday input {
+  margin: 0;
+  cursor: pointer;
+  accent-color: #d6b86a;
+}
+
+.settings-weekday span {
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+}
+
+.settings-weekday--sun span { color: #d96c6c; }
+.settings-weekday--sat span { color: #6c95d1; }
+.settings-weekday--sun.settings-weekday--on span,
+.settings-weekday--sat.settings-weekday--on span {
+  color: inherit;
+}
+
+/* 印刷時は詳細設定を非表示 */
+@media print {
+  .intro--settings { display: none !important; }
+  .category-date-inline { color: #888; }
+}
+
+/* ==================================================================== */
+/* モード切替（仕事/プライベート/その他/全部）                          */
+/* ==================================================================== */
+
+.mode-tabs {
+  max-width: 400px;
+  margin: 14px auto 0;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  background: #efe9dc;
+  border-radius: 999px;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #8a7a5a;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.18s;
+}
+
+.mode-tab:hover { color: #5a4a2a; }
+
+.mode-tab.active {
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+.mode-tab.active[data-mode="work"]    { color: #3a6bc0; }
+.mode-tab.active[data-mode="private"] { color: #2e8b57; }
+.mode-tab.active[data-mode="other"]   { color: #8b6e3a; }
+.mode-tab.active[data-mode="all"]     { color: #5a4a2a; }
+
+@media (max-width: 640px) {
+  .mode-tabs { margin: 10px 12px 0; max-width: none; }
+  .mode-tab { padding: 8px 2px; font-size: 11px; }
+}
+
+/* 全部モードでの区分ドット */
+.task-space-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.task-space-dot--work    { background: #5b8def; }
+.task-space-dot--private { background: #34c759; }
+.task-space-dot--other   { background: #d6c7b3; }
+
+/* 移動メニュー内の区切りと現在値 */
+.move-menu-sep {
+  height: 1px;
+  background: #eee;
+  margin: 4px 2px;
+}
+
+.move-menu-item--current {
+  color: #007aff;
+  font-weight: 700;
+}
+
+/* ==================================================================== */
+/* 取込ダイアログ（共有コード / JSONファイル）                          */
+/* ==================================================================== */
+
+.import-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: importOverlayIn 0.15s ease;
+}
+@keyframes importOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+.import-dialog {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: importDialogIn 0.18s ease;
+}
+@keyframes importDialogIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.import-dialog-title {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.import-dialog-desc {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.import-dialog-input {
+  width: 100%;
+  border: 1.5px solid #ddd;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12px;
+  word-break: break-all;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.import-dialog-input:focus { border-color: #007aff; }
+
+.import-dialog-error {
+  color: #d93025;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.import-dialog-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  align-items: center;
+}
+
+.import-dialog-btns-spacer { flex: 1; }
+
+.import-dialog-file {
+  background: none;
+  border: none;
+  color: #007aff;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 6px 2px;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+.import-dialog-cancel {
+  background: #f0f0f0;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #555;
+  font-family: inherit;
+}
+
+.import-dialog-ok {
+  background: #007aff;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.import-dialog-ok:hover { background: #005ecb; }
+
+/* ==================================================================== */
+/* タッチドラッグ（枝葉。app.js の setupTouchDrag とセットで削除可）    */
+/* ==================================================================== */
+
+/* 長押し時のテキスト選択・コールアウトを抑止 */
+.task-row {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 指に追従する半透明カード */
+.touch-drag-ghost {
+  position: fixed;
+  z-index: 2000;
+  pointer-events: none;
+  opacity: 0.92;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  transform: scale(1.03);
+  animation: touchGhostPop 0.15s ease;
+}
+
+@keyframes touchGhostPop {
+  from { transform: scale(1); opacity: 0.5; }
+  to   { transform: scale(1.03); opacity: 0.92; }
+}
+
+/* 掴んでいる元タスクは薄く */
+.task-wrapper--touch-source {
+  opacity: 0.35;
+}
+
+/* ===== 印刷時の追加非表示（新UI分） ===== */
+@media print {
+  .mode-tabs,
+  .task-move-btn,
+  .header-menu-btn,
+  .header-data-btn,
+  .task-space-dot { display: none !important; }
+}
+
+/* ===== iOSでの入力時ズーム対策 =====
+   入力欄のフォントが16px未満だと、iOS Safariはフォーカス時に自動でズームし、
+   入力後もズームが戻らないことがある。スマホでは16px以上に引き上げて防ぐ。
+   ファイル末尾に置くことで、同じ詳細度の .child-input 等の指定に確実に勝たせる。 */
+@media (max-width: 640px) {
+  .task-input,
+  .task-edit-input,
+  .child-input,
+  .import-dialog-input {
+    font-size: 16px;
+  }
+}
