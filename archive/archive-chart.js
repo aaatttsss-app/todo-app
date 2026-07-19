@@ -9,21 +9,41 @@
   'use strict';
 
   var STORAGE_KEY = 'todoApp';
+  var ARCHIVE_KEY = 'todoArchive';
   var chartDays = 30;
   var allTasks  = [];
 
   // ===== データ（archive.js とは独立して読み込む） =====
 
+  function isDoneParent(t) {
+    return t && t.parentId === null && t.category === 'done' && t.completedDate;
+  }
+
+  // ライブ盤の直近完了＋保管庫の全履歴の和集合（READ ONLY）
   function loadTasks() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        var data = JSON.parse(raw);
-        var done = (data.tasks || []).filter(function(t) {
-          return t.parentId === null && t.category === 'done' && t.completedDate;
+      var byId = {};
+
+      var rawLive = localStorage.getItem(STORAGE_KEY);
+      if (rawLive) {
+        var data = JSON.parse(rawLive);
+        (data.tasks || []).forEach(function(t) {
+          if (isDoneParent(t)) byId[t.id] = t;
         });
-        if (done.length > 0) return done;
       }
+
+      var rawArch = localStorage.getItem(ARCHIVE_KEY);
+      if (rawArch) {
+        var archive = JSON.parse(rawArch);
+        if (Array.isArray(archive)) {
+          archive.forEach(function(t) {
+            if (isDoneParent(t) && !byId[t.id]) byId[t.id] = t;
+          });
+        }
+      }
+
+      var done = Object.keys(byId).map(function(id) { return byId[id]; });
+      if (done.length > 0) return done;
     } catch (e) {}
     return window.SAMPLE_ARCHIVE_TASKS || [];
   }

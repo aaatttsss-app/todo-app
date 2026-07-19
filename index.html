@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007aff">
 
-  <link rel="stylesheet" href="style.css?v=19">
+  <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
   <header class="app-header">
@@ -135,6 +135,18 @@
         <p class="intro-tip">
           スキップ日に開いてもタスクは動かず、次の非スキップ日に開いた時にまとめて更新されます。
         </p>
+
+        <div id="cloudSyncSection" class="cloud-sync-section" hidden>
+          <h4 class="intro-section-h">☁️ クラウド自動同期</h4>
+          <p>
+            合言葉を入れると、この端末と<strong>同じ合言葉を入れた他の端末</strong>で自動的にデータが同期されます。
+          </p>
+          <div class="cloud-sync-row">
+            <input type="text" id="cloudSyncKeyInput" class="task-input" placeholder="合言葉（長く推測されにくいもの）" autocomplete="off">
+            <button class="task-add-btn" id="cloudSyncKeySave">設定</button>
+          </div>
+          <p class="cloud-sync-status" id="cloudSyncStatus"></p>
+        </div>
       </div>
     </details>
 
@@ -211,7 +223,10 @@
     </div>
   </main>
 
-  <script src="app.js?v=13"></script>
+  <!-- クラウド同期の接続情報。config.js が無い場合は404だが実害なし（純ローカル動作） -->
+  <script src="config.js" onerror="/* config.js未設置＝クラウド同期は無効のまま */"></script>
+  <script src="icons/qrcode.min.js?v=1"></script>
+  <script src="app.js?v=16"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function() {});

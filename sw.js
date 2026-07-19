@@ -1,11 +1,12 @@
 // Service Worker — オフラインでも動くようにファイルをキャッシュする
-var CACHE_NAME = 'todo-v3';
+var CACHE_NAME = 'todo-v4';
 var FILES_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './manifest.json',
+  './icons/qrcode.min.js',
   './icons/favicon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',

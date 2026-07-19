@@ -2,6 +2,8 @@
 
 const STORAGE_KEY = 'todoApp';
 const SETTINGS_KEY = 'todoSettings';
+const ARCHIVE_KEY = 'todoArchive';         // 振り返り専用の保管庫（古い完了タスクを永続保存）
+const RECENT_DONE_DAYS = 7;                // メインの「処理済み」に残す日数。これより古い完了は保管庫へ
 const WEEKDAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
 // 展開状態（メモリのみ、リロードでリセット）
@@ -97,6 +99,206 @@ function loadData() {
 
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  cloudPushDebounced();  // クラウド同期が有効なら、少し待ってからアップロード
+}
+
+// ===== 保管庫（振り返り専用・古い完了タスクを永続保存） =====
+
+function loadArchive() {
+  try {
+    var raw = localStorage.getItem(ARCHIVE_KEY);
+    if (raw) {
+      var arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr;
+    }
+  } catch (e) { /* 破損時は空 */ }
+  return [];
+}
+
+function saveArchive(arr) {
+  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr));
+}
+
+// ライブ盤の「処理済み」のうち、完了から RECENT_DONE_DAYS 日を超えたものを
+// （親＋子タスクごと）保管庫へ移し、メインからは消す。init で1回実行。
+// 既存ユーザーは初回ロードで古い完了が自動的に保管庫へ移る（移行を兼ねる・冪等）。
+function pruneCompleted(data) {
+  var cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - RECENT_DONE_DAYS);
+
+  var doneParents = data.tasks.filter(function(t) {
+    return t.parentId === null && t.category === 'done' && t.completedDate;
+  });
+
+  var toArchiveIds = {};   // 保管庫へ移す親＋子の id 集合
+  var movedParents = [];
+  doneParents.forEach(function(p) {
+    var d = new Date(p.completedDate + 'T00:00:00');
+    if (d < cutoff) {
+      toArchiveIds[p.id] = true;
+      (p.children || []).forEach(function(cid) { toArchiveIds[cid] = true; });
+      movedParents.push(p);
+    }
+  });
+
+  if (movedParents.length === 0) return false;
+
+  // 移動対象のタスク（親＋子）をそのままの形で保管庫へ追加
+  var moved = data.tasks.filter(function(t) { return toArchiveIds[t.id]; });
+  var archive = loadArchive();
+  var existing = {};
+  archive.forEach(function(t) { existing[t.id] = true; });
+  moved.forEach(function(t) { if (!existing[t.id]) archive.push(t); });
+  saveArchive(archive);
+
+  // ライブ盤から除去
+  data.tasks = data.tasks.filter(function(t) { return !toArchiveIds[t.id]; });
+  saveData(data);
+  return true;
+}
+
+// ===== クラウド自動同期（任意・枝葉。config.js が無ければ完全に無効＝純ローカル動作） =====
+// 保管庫（todoArchive）はv1では同期対象外（端末ごと）。ライブ盤（todoApp）のみ同期する。
+
+var SYNC_KEY_STORAGE = 'todoSyncKey';
+var CLOUD_PUSH_DELAY_MS = 1500;
+var CLOUD_POLL_MS = 20000;
+
+var cloudPushTimer = null;
+var cloudPollTimer = null;
+var cloudLastUpdatedAt = null;  // 直近で同期済みの updated_at（自分の更新をpullし直さないため）
+
+function isCloudEnabled() {
+  return !!(window.TODO_CLOUD && window.TODO_CLOUD.url && window.TODO_CLOUD.anonKey);
+}
+
+function getSyncKey() {
+  return (localStorage.getItem(SYNC_KEY_STORAGE) || '').trim();
+}
+
+function setSyncKey(key) {
+  localStorage.setItem(SYNC_KEY_STORAGE, key.trim());
+}
+
+function setCloudSyncStatus(text) {
+  var el = document.getElementById('cloudSyncStatus');
+  if (el) el.textContent = text;
+}
+
+function cloudRpc(fnName, body) {
+  var cfg = window.TODO_CLOUD;
+  return fetch(cfg.url + '/rest/v1/rpc/' + fnName, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': cfg.anonKey,
+      'Authorization': 'Bearer ' + cfg.anonKey
+    },
+    body: JSON.stringify(body)
+  }).then(function(res) {
+    if (!res.ok) throw new Error('cloud http ' + res.status);
+    return res.json();
+  });
+}
+
+// ローカルの変更をクラウドへ送る（saveDataのたびに呼ばれるが、少し待ってまとめて送る）
+function cloudPushDebounced() {
+  if (!isCloudEnabled()) return;
+  var key = getSyncKey();
+  if (!key) return;
+
+  if (cloudPushTimer) clearTimeout(cloudPushTimer);
+  setCloudSyncStatus('☁️ 同期中…');
+  cloudPushTimer = setTimeout(function() {
+    cloudPushTimer = null;
+    var payload = buildExportObject();  // ライブ盤のみ（軽い）。保管庫は含めない
+    cloudRpc('save_board', { p_key: key, p_payload: payload }).then(function(ts) {
+      cloudLastUpdatedAt = Array.isArray(ts) ? ts[0] : ts;
+      setCloudSyncStatus('☁️ 同期済み');
+    }).catch(function() {
+      setCloudSyncStatus('☁️ 送信できませんでした（次回再試行）');
+    });
+  }, CLOUD_PUSH_DELAY_MS);
+}
+
+// クラウドから読み込み、ローカルより新しければ取込んで再描画する。
+// data: init() が保持する実データオブジェクト（参照を維持したまま中身だけ更新する）
+function cloudPull(data) {
+  if (!isCloudEnabled()) return;
+  var key = getSyncKey();
+  if (!key) return;
+  if (cloudPushTimer) return;  // アップロード待ち中は上書きしない（編集中データの保護）
+
+  setCloudSyncStatus('☁️ 確認中…');
+  cloudRpc('get_board', { p_key: key }).then(function(rows) {
+    var remote = rows && rows[0];
+    if (!remote || !remote.payload) {
+      setCloudSyncStatus('☁️ 同期済み（まだデータなし）');
+      return;
+    }
+    if (cloudLastUpdatedAt && remote.updated_at <= cloudLastUpdatedAt) {
+      setCloudSyncStatus('☁️ 同期済み');
+      return;
+    }
+
+    var importedData = remote.payload.data;
+    if (!importedData || !Array.isArray(importedData.tasks)) {
+      setCloudSyncStatus('☁️ 同期済み');
+      return;
+    }
+
+    // localStorage には直接書く（saveData経由だと自分自身をまた送信してしまうため）
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(importedData));
+    if (remote.payload.settings && Array.isArray(remote.payload.settings.skippedDays)) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(remote.payload.settings));
+    }
+    cloudLastUpdatedAt = remote.updated_at;
+
+    // 表示中の data オブジェクトの中身を更新（参照は維持＝他の関数からも見える）
+    data.tasks = importedData.tasks;
+    data.lastProcessedDate = importedData.lastProcessedDate;
+    renderAll(data);
+    updateCategoryDateLabels();
+    setCloudSyncStatus('☁️ 他の端末の更新を反映しました');
+  }).catch(function() {
+    setCloudSyncStatus('☁️ 通信できませんでした');
+  });
+}
+
+function setupCloudSync(data) {
+  var section = document.getElementById('cloudSyncSection');
+  if (!isCloudEnabled()) {
+    if (section) section.hidden = true;
+    return;
+  }
+  if (section) section.hidden = false;
+
+  var input = document.getElementById('cloudSyncKeyInput');
+  var saveBtn = document.getElementById('cloudSyncKeySave');
+  if (input) input.value = getSyncKey();
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function() {
+      var key = input.value.trim();
+      if (!key) { alert('合言葉を入力してください。'); return; }
+      setSyncKey(key);
+      setCloudSyncStatus('☁️ 設定しました。確認中…');
+      cloudPull(data);
+    });
+  }
+
+  // 起動時に一度、以後は復帰時・軽いポーリングで確認
+  if (getSyncKey()) cloudPull(data);
+
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) cloudPull(data);
+  });
+
+  if (cloudPollTimer) clearInterval(cloudPollTimer);
+  cloudPollTimer = setInterval(function() {
+    if (!document.hidden) cloudPull(data);
+  }, CLOUD_POLL_MS);
 }
 
 function formatLocalDate(d) {
@@ -1081,13 +1283,18 @@ function copyCategoryAsText(data, category, btn) {
 // ===== データ エクスポート / インポート / 共有コード =====
 
 // エクスポート対象オブジェクト（JSON保存・共有コード共通）
-function buildExportObject() {
-  return {
+// includeArchive=true: 保管庫（振り返り履歴）も含む＝完全バックアップ（JSON保存用）
+// includeArchive=false: ライブ盤のみ＝軽い（QR/共有コード用）
+function buildExportObject(opts) {
+  var includeArchive = !!(opts && opts.includeArchive);
+  var obj = {
     version: 1,
     exportedAt: new Date().toISOString(),
     data: loadData(),
     settings: loadSettings()
   };
+  if (includeArchive) obj.archive = loadArchive();
+  return obj;
 }
 
 // 取り込みオブジェクトを検証して保存（JSON取込・共有コード共通）。成功時 true
@@ -1102,11 +1309,16 @@ function applyImportedObject(obj) {
   if (importedSettings && Array.isArray(importedSettings.skippedDays)) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(importedSettings));
   }
+  // 保管庫: 完全バックアップ（archive付き）は復元、軽いQR取込（archiveなし）はローカル保管庫を保持
+  if (obj && Array.isArray(obj.archive)) {
+    saveArchive(obj.archive);
+  }
   return true;
 }
 
 function exportData() {
-  var json = JSON.stringify(buildExportObject(), null, 2);
+  // JSON保存は完全バックアップ（保管庫の振り返り履歴も含む）
+  var json = JSON.stringify(buildExportObject({ includeArchive: true }), null, 2);
   var blob = new Blob([json], { type: 'application/json' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -1140,30 +1352,113 @@ function parseShareCode(str) {
   }
 }
 
-// 共有コードを作って渡す（タッチ端末は共有シート、PCはクリップボード）
+// URLがこの長さを超えるとQRの読み取りが不安定になるため、QRを出さずフォールバック
+var QR_URL_MAX = 1200;
+
+// 共有: QRを表示（PC→スマホはカメラで読取）。大きすぎる場合はコピー/共有シートにフォールバック
 function shareDataAsCode() {
   var code = buildShareCode();
-  var isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-  if (isCoarse && navigator.share) {
-    navigator.share({ text: code }).catch(function(err) {
-      if (err && err.name !== 'AbortError') copyShareCode(code);
-    });
-    return;
-  }
-  copyShareCode(code);
+  var importUrl = location.origin + location.pathname + '#import=' + code;
+  openShareDialog(code, importUrl);
 }
 
-function copyShareCode(code) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(function() {
-      alert('共有コードをコピーしました。\nLINEやメールに貼り付けて、もう一方の端末に送ってください。\n受け取った側は「取込」でコードを貼り付けます。');
-    }).catch(function() {
-      prompt('この共有コードをコピーして、もう一方の端末に送ってください:', code);
-    });
-  } else {
-    // clipboard API が使えない場合（file:// など）はpromptで代替
-    prompt('この共有コードをコピーして、もう一方の端末に送ってください:', code);
+function closeShareDialog() {
+  var el = document.getElementById('shareDialogOverlay');
+  if (el) el.remove();
+}
+
+function openShareDialog(code, importUrl) {
+  closeShareDialog();
+
+  // QRを生成できるか（データが小さく、ライブラリがある場合のみ）
+  var qrHtml = '';
+  var canFitQr = (importUrl.length <= QR_URL_MAX) && (typeof qrcode !== 'undefined');
+  if (canFitQr) {
+    try {
+      var qr = qrcode(0, 'M');   // 型自動・誤り訂正M
+      qr.addData(importUrl);
+      qr.make();
+      var cell = qr.getModuleCount() > 45 ? 4 : 6;  // 大きいQRはセルを小さく
+      qrHtml = '<div class="share-qr">' + qr.createImgTag(cell, 8) + '</div>';
+    } catch (e) {
+      canFitQr = false;
+    }
   }
+
+  var isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+  var overlay = document.createElement('div');
+  overlay.className = 'import-dialog-overlay';
+  overlay.id = 'shareDialogOverlay';
+
+  var box = document.createElement('div');
+  box.className = 'import-dialog share-dialog';
+  box.innerHTML =
+    '<h3 class="import-dialog-title">📤 データを共有</h3>' +
+    (canFitQr
+      ? '<p class="import-dialog-desc">もう一方の端末の<strong>カメラでこのQRコードを読み取る</strong>と、そのままデータが取り込まれます。</p>' + qrHtml
+      : '<p class="import-dialog-desc">データが大きいためQRに収まりません。下のボタンで<strong>リンクを送る</strong>（AirDropなど）か、コードをコピーしてください。受け取った側は「取込」で貼り付けます。</p>') +
+    '<div class="share-dialog-btns">' +
+      (isCoarse && navigator.share ? '<button class="import-dialog-ok" id="shareSheetBtn">共有…</button>' : '') +
+      '<button class="import-dialog-file" id="shareCopyLinkBtn">リンクをコピー</button>' +
+      '<button class="import-dialog-file" id="shareCopyCodeBtn">コードをコピー</button>' +
+      '<span class="import-dialog-btns-spacer"></span>' +
+      '<button class="import-dialog-cancel" id="shareCloseBtn">閉じる</button>' +
+    '</div>';
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeShareDialog(); });
+  document.getElementById('shareCloseBtn').addEventListener('click', closeShareDialog);
+  document.getElementById('shareCopyLinkBtn').addEventListener('click', function() {
+    copyText(importUrl, 'リンクをコピーしました。もう一方の端末に送って開くと取り込まれます。');
+  });
+  document.getElementById('shareCopyCodeBtn').addEventListener('click', function() {
+    copyText(code, '共有コードをコピーしました。受け取った側は「取込」で貼り付けます。');
+  });
+  var sheetBtn = document.getElementById('shareSheetBtn');
+  if (sheetBtn) sheetBtn.addEventListener('click', function() {
+    navigator.share({ text: code }).catch(function() {});
+  });
+}
+
+function copyText(text, okMsg) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() { alert(okMsg); })
+      .catch(function() { prompt('コピーしてください:', text); });
+  } else {
+    prompt('コピーしてください:', text);  // file:// など
+  }
+}
+
+// --- リンク取込（QRやAirDropで送られた #import=... 付きURLで起動したとき） ---
+
+function clearHash() {
+  if (history.replaceState) {
+    history.replaceState(null, '', location.pathname + location.search);
+  } else {
+    location.hash = '';
+  }
+}
+
+// #import=<code> を検出して取込。取り込んだら true（呼び元でreload）
+function handleHashImport() {
+  var marker = '#import=';
+  var h = location.hash || '';
+  if (h.indexOf(marker) !== 0) return false;
+  var code = h.slice(marker.length);
+  try { code = decodeURIComponent(code); } catch (e) { /* rawのまま */ }
+  var obj = parseShareCode(code);
+  if (!obj) {
+    alert('取り込みリンクが正しくありません。コピー漏れがないか確認してください。');
+    clearHash();
+    return false;
+  }
+  var ok = confirm('このリンクのデータを取り込みますか？\n今このアプリにあるデータは上書きされます。');
+  clearHash();
+  if (ok && applyImportedObject(obj)) return true;
+  return false;
 }
 
 // --- 取込ダイアログ（共有コード貼り付け＋JSONファイルの両対応） ---
@@ -1615,13 +1910,18 @@ function setupSettingsPanel() {
 // ===== 初期化 =====
 
 (function init() {
+  // QR/リンク（#import=...）で起動したら、まず取込してリロード
+  if (handleHashImport()) { location.reload(); return; }
+
   var data = loadData();
   processDateChange(data);
+  pruneCompleted(data);  // 古い完了を保管庫へ移す（メインを軽く保つ）
   setupModeTabs(data);  // renderAll より先（保存済みモードを復元してから描画）
   renderAll(data);
   setupEvents(data);
   setupTouchDrag(data);
   setupSettingsPanel();
+  setupCloudSync(data);
   updateCategoryDateLabels();
 })();
 

@@ -6,6 +6,7 @@
   'use strict';
 
   var STORAGE_KEY = 'todoApp';
+  var ARCHIVE_KEY = 'todoArchive';
 
   var WEEKDAYS_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -83,17 +84,36 @@
 
   // ===== データ読み込み（READ ONLY） =====
 
+  function isDoneParent(t) {
+    return t && t.parentId === null && t.category === 'done' && t.completedDate;
+  }
+
+  // ライブ盤の直近完了（todoApp）＋ 保管庫の全履歴（todoArchive）の和集合を読む（READ ONLY）
   function loadTasks() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        var data = JSON.parse(raw);
-        var doneTasks = (data.tasks || []).filter(function(t) {
-          return t.parentId === null && t.category === 'done' && t.completedDate;
+      var byId = {};
+
+      var rawLive = localStorage.getItem(STORAGE_KEY);
+      if (rawLive) {
+        var data = JSON.parse(rawLive);
+        (data.tasks || []).forEach(function(t) {
+          if (isDoneParent(t)) byId[t.id] = t;
         });
-        if (doneTasks.length > 0) {
-          return { tasks: doneTasks, isSample: false };
+      }
+
+      var rawArch = localStorage.getItem(ARCHIVE_KEY);
+      if (rawArch) {
+        var archive = JSON.parse(rawArch);
+        if (Array.isArray(archive)) {
+          archive.forEach(function(t) {
+            if (isDoneParent(t) && !byId[t.id]) byId[t.id] = t;
+          });
         }
+      }
+
+      var doneTasks = Object.keys(byId).map(function(id) { return byId[id]; });
+      if (doneTasks.length > 0) {
+        return { tasks: doneTasks, isSample: false };
       }
     } catch (e) { /* 破損データは無視 */ }
     return { tasks: window.SAMPLE_ARCHIVE_TASKS || [], isSample: true };
