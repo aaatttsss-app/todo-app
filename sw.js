@@ -1,5 +1,5 @@
 // Service Worker — オフラインでも動くようにファイルをキャッシュする
-var CACHE_NAME = 'todo-v4';
+var CACHE_NAME = 'todo-v5';
 var FILES_TO_CACHE = [
   './',
   './index.html',
@@ -15,7 +15,10 @@ var FILES_TO_CACHE = [
   './archive/archive.css',
   './archive/archive.js',
   './archive/archive-chart.js',
-  './archive/archive-sample-data.js'
+  './archive/archive-sample-data.js',
+  './memo/index.html',
+  './memo/memo.css',
+  './memo/memo.js'
 ];
 
 self.addEventListener('install', function(event) {

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>メモ | Todo リスト</title>
+  <meta name="description" content="ちょっとしたことを書き留めておく自由メモ。">
+  <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="memo.css?v=1">
+</head>
+<body>
+  <header class="memo-header">
+    <div class="memo-header-row">
+      <a class="memo-back" href="../index.html">← Todoリストへ</a>
+      <h1>📝 メモ</h1>
+      <span class="memo-spacer"></span>
+    </div>
+  </header>
+
+  <main class="memo-main">
+    <section class="memo-card">
+      <textarea id="memoText" class="memo-textarea" placeholder="思いついたことを、ここに気軽に書いておけます。自動で保存されます。"></textarea>
+      <div class="memo-footer">
+        <span class="memo-status" id="memoStatus"></span>
+        <button class="memo-clear-btn" id="memoClearBtn" title="メモを全部消す">🗑 消去</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="memo.js?v=1"></script>
+</body>
+</html>
