@@ -27,6 +27,8 @@
     </section>
   </main>
 
-  <script src="memo.js?v=1"></script>
+  <!-- クラウド同期の接続情報（メインアプリと共有）。無ければ純ローカル動作 -->
+  <script src="../config.js" onerror="/* config.js未設置＝クラウド同期は無効のまま */"></script>
+  <script src="memo.js?v=2"></script>
 </body>
 </html>
