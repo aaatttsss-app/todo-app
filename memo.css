@@ -1,0 +1,132 @@
+/* ===== メモページ専用 CSS（枝葉：このフォルダを削除すれば完全に消えます） ===== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Comic Sans MS", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #faf7f0 0%, #fffdf5 60%, #f5f0e0 100%);
+  background-attachment: fixed;
+  margin: 0;
+  padding: 0;
+  color: #3a3528;
+  min-height: 100vh;
+}
+
+/* ===== ヘッダー ===== */
+.memo-header {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px dashed #e6dbc0;
+  padding: 14px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.memo-header-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.memo-header h1 {
+  margin: 0;
+  font-size: 20px;
+  color: #5a4a2a;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.memo-back {
+  display: inline-flex;
+  align-items: center;
+  color: #b89860;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fffbf0;
+  border: 1px dashed #e6dbc0;
+  transition: all 0.15s;
+}
+.memo-back:hover {
+  color: #8b6e3a;
+  border-style: solid;
+  background: #fff8e1;
+}
+
+.memo-spacer { flex: 1; }
+
+/* ===== メイン ===== */
+.memo-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.memo-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.memo-textarea {
+  width: 100%;
+  min-height: 60vh;
+  border: none;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  color: #3a3528;
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.memo-textarea::placeholder { color: #c0b090; }
+
+.memo-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #ebdfc5;
+}
+
+.memo-status {
+  font-size: 12px;
+  color: #b89860;
+  min-height: 1.4em;
+}
+
+.memo-clear-btn {
+  background: none;
+  border: 1px solid #eee;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.memo-clear-btn:hover {
+  color: #e55;
+  border-color: #f3c8c8;
+  background: #fef2f2;
+}
+
+/* ===== スマホ幅 ===== */
+@media (max-width: 640px) {
+  .memo-header { padding: 10px 14px; }
+  .memo-header h1 { font-size: 16px; }
+  .memo-main { padding: 16px 14px 40px; }
+  .memo-textarea { font-size: 16px; min-height: 55vh; } /* 16px = iOSの自動ズーム対策 */
+}
