@@ -1488,11 +1488,15 @@ body {
 /* タッチドラッグ（枝葉。app.js の setupTouchDrag とセットで削除可）    */
 /* ==================================================================== */
 
-/* 長押し時のテキスト選択・コールアウトを抑止 */
+/* 長押し時のテキスト選択・コールアウトを抑止。
+   touch-action: none が無いと、Windows/Android等のChromium系ブラウザは
+   タッチ移動を「ブラウザ標準のスクロール」として先取りしてしまい、
+   JS側の長押しドラッグ処理まで到達しないことがある（iOS Safariは比較的寛容で気づきにくい）。 */
 .task-row {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  touch-action: none;
 }
 
 /* 指に追従する半透明カード */

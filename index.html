@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007aff">
 
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
   <header class="app-header">
@@ -227,7 +227,7 @@
   <!-- クラウド同期の接続情報。config.js が無い場合は404だが実害なし（純ローカル動作） -->
   <script src="config.js" onerror="/* config.js未設置＝クラウド同期は無効のまま */"></script>
   <script src="icons/qrcode.min.js?v=1"></script>
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function() {});

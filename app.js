@@ -97,8 +97,31 @@ function loadData() {
   };
 }
 
+// 保存に失敗した時、黙って止まると「押しても反応しない＝フリーズ」に見えてしまう。
+// 原因（容量オーバー／ブラウザがサイトデータを保存できない設定 等）を画面に出す。
+var storageErrorShown = false;
+
+function reportStorageError(e) {
+  console.error('保存に失敗しました:', e);
+  if (storageErrorShown) return;   // 連打しても1回だけ知らせる
+  storageErrorShown = true;
+  alert(
+    'データを保存できませんでした。\n\n' +
+    'ブラウザの設定でこのサイトのデータ保存がブロックされているか、保存容量がいっぱいの可能性があります。\n' +
+    '・プライベート（シークレット）ウィンドウで開いていないか\n' +
+    '・ブラウザの設定で「Cookieとサイトデータ」がブロックされていないか\n' +
+    'をご確認ください。\n\n' +
+    '（技術的な内容: ' + (e && e.name ? e.name : e) + '）'
+  );
+}
+
 function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    reportStorageError(e);
+    return;  // 保存できなくても、呼び出し元の画面更新は続行させる
+  }
   cloudPushDebounced();  // クラウド同期が有効なら、少し待ってからアップロード
 }
 
@@ -116,7 +139,14 @@ function loadArchive() {
 }
 
 function saveArchive(arr) {
-  localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr));
+  // 起動処理（pruneCompleted）から呼ばれるため、ここで例外を投げるとアプリ全体が起動しなくなる
+  try {
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr));
+    return true;
+  } catch (e) {
+    reportStorageError(e);
+    return false;
+  }
 }
 
 // ライブ盤の「処理済み」のうち、完了から RECENT_DONE_DAYS 日を超えたものを
@@ -150,7 +180,10 @@ function pruneCompleted(data) {
   var existing = {};
   archive.forEach(function(t) { existing[t.id] = true; });
   moved.forEach(function(t) { if (!existing[t.id]) archive.push(t); });
-  saveArchive(archive);
+
+  // 保管庫へ確実に退避できた時だけライブ盤から消す。
+  // 失敗したまま消すと、そのタスクはどこにも残らず消失してしまう。
+  if (!saveArchive(archive)) return false;
 
   // ライブ盤から除去
   data.tasks = data.tasks.filter(function(t) { return !toArchiveIds[t.id]; });
@@ -331,7 +364,11 @@ function loadSettings() {
 }
 
 function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (e) {
+    reportStorageError(e);
+  }
 }
 
 // 指定日付（Date または 'YYYY-MM-DD' 文字列）がスキップ対象か
