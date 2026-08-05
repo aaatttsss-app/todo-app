@@ -86,6 +86,8 @@ function loadData() {
     if (raw) {
       var data = JSON.parse(raw);
       migrateSpaces(data);
+      // deletedIds（削除記録）: 既存ユーザーのデータには無いので補う
+      if (!Array.isArray(data.deletedIds)) data.deletedIds = [];
       return data;
     }
   } catch (e) {
@@ -93,7 +95,8 @@ function loadData() {
   }
   return {
     lastProcessedDate: todayString(),
-    tasks: []
+    tasks: [],
+    deletedIds: []
   };
 }
 
@@ -122,7 +125,7 @@ function saveData(data) {
     reportStorageError(e);
     return;  // 保存できなくても、呼び出し元の画面更新は続行させる
   }
-  cloudPushDebounced();  // クラウド同期が有効なら、少し待ってからアップロード
+  cloudPushDebounced(data);  // クラウド同期が有効なら、少し待ってからアップロード
 }
 
 // ===== 保管庫（振り返り専用・古い完了タスクを永続保存） =====
@@ -187,8 +190,31 @@ function pruneCompleted(data) {
 
   // ライブ盤から除去
   data.tasks = data.tasks.filter(function(t) { return !toArchiveIds[t.id]; });
+
+  // クラウド同期はライブ盤のみが対象（保管庫は端末ごと）。
+  // 「削除記録」に残しておかないと、まだ保管庫へ移していない他端末との同期で
+  // このタスクがライブ盤に復活してしまう。
+  if (!Array.isArray(data.deletedIds)) data.deletedIds = [];
+  var archivedAt = new Date().toISOString();
+  Object.keys(toArchiveIds).forEach(function(aid) {
+    data.deletedIds.push({ id: aid, deletedAt: archivedAt });
+  });
+
   saveData(data);
   return true;
+}
+
+var TOMBSTONE_KEEP_DAYS = 30;  // 削除記録をこの日数より古くなったら消す（無限に増やさないため）
+
+function pruneTombstones(data) {
+  if (!Array.isArray(data.deletedIds) || data.deletedIds.length === 0) return;
+  var cutoff = Date.now() - TOMBSTONE_KEEP_DAYS * 24 * 60 * 60 * 1000;
+  var before = data.deletedIds.length;
+  data.deletedIds = data.deletedIds.filter(function(d) {
+    var t = Date.parse(d.deletedAt);
+    return !t || t >= cutoff;  // 日付が壊れている場合は安全側で残す
+  });
+  if (data.deletedIds.length !== before) saveData(data);
 }
 
 // ===== クラウド自動同期（任意・枝葉。config.js が無ければ完全に無効＝純ローカル動作） =====
@@ -235,8 +261,48 @@ function cloudRpc(fnName, body) {
   });
 }
 
-// ローカルの変更をクラウドへ送る（saveDataのたびに呼ばれるが、少し待ってまとめて送る）
-function cloudPushDebounced() {
+// ライブ盤同士を統合する（クラウド同期の中核）。
+//
+// 以前は「新しい方で丸ごと上書き」だったため、A端末で追加したタスクをpullする前に
+// B端末が保存すると、B端末の古い状態がそのままアップロードされ、Aの追加が消えてしまっていた。
+// これを防ぐため、id単位で「両方に無いものは持ち寄る（和集合）」方式にする。
+// 同じidが両方にある場合はローカル優先（今まさに編集している側を尊重）。
+// 「削除記録（deletedIds）」に載っているidは、どちらか一方にしか残っていなくても
+// 復活させない（削除操作を正しく伝播させるため）。
+function mergeBoards(localData, remoteData) {
+  var deletedMap = {};
+  (localData.deletedIds || []).forEach(function(d) { deletedMap[d.id] = d; });
+  (remoteData.deletedIds || []).forEach(function(d) {
+    if (!deletedMap[d.id] || d.deletedAt > deletedMap[d.id].deletedAt) deletedMap[d.id] = d;
+  });
+
+  var taskMap = {};
+  (remoteData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });
+  (localData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });  // 同一id競合はローカル優先
+
+  var mergedTasks = Object.keys(taskMap)
+    .filter(function(id) { return !deletedMap[id]; })
+    .map(function(id) { return taskMap[id]; });
+
+  // 削除済みタスクを指す子タスク参照が残らないよう軽く掃除（無くても実害はないが綺麗にしておく）
+  var mergedIds = {};
+  mergedTasks.forEach(function(t) { mergedIds[t.id] = true; });
+  mergedTasks.forEach(function(t) {
+    if (t.children && t.children.length) {
+      t.children = t.children.filter(function(cid) { return mergedIds[cid]; });
+    }
+  });
+
+  return {
+    lastProcessedDate: localData.lastProcessedDate || remoteData.lastProcessedDate,
+    tasks: mergedTasks,
+    deletedIds: Object.keys(deletedMap).map(function(id) { return deletedMap[id]; })
+  };
+}
+
+// ローカルの変更をクラウドへ送る（saveDataのたびに呼ばれるが、少し待ってまとめて送る）。
+// 送る前に必ず一度リモートを取得して統合してからアップロードする（＝取りこぼし防止）。
+function cloudPushDebounced(data) {
   if (!isCloudEnabled()) return;
   var key = getSyncKey();
   if (!key) return;
@@ -245,8 +311,23 @@ function cloudPushDebounced() {
   setCloudSyncStatus('☁️ 同期中…');
   cloudPushTimer = setTimeout(function() {
     cloudPushTimer = null;
-    var payload = buildExportObject();  // ライブ盤のみ（軽い）。保管庫は含めない
-    cloudRpc('save_board', { p_key: key, p_payload: payload }).then(function(ts) {
+    cloudRpc('get_board', { p_key: key }).then(function(rows) {
+      var remote = rows && rows[0];
+      var remoteData = (remote && remote.payload && remote.payload.data) ? remote.payload.data : { tasks: [], deletedIds: [] };
+      var localData = loadData();
+      var merged = mergeBoards(localData, remoteData);
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      if (data) {
+        data.tasks = merged.tasks;
+        data.lastProcessedDate = merged.lastProcessedDate;
+        data.deletedIds = merged.deletedIds;
+        renderAll(data);
+        updateCategoryDateLabels();
+      }
+
+      return cloudRpc('save_board', { p_key: key, p_payload: buildExportObject() });
+    }).then(function(ts) {
       cloudLastUpdatedAt = Array.isArray(ts) ? ts[0] : ts;
       setCloudSyncStatus('☁️ 同期済み');
     }).catch(function() {
@@ -255,7 +336,7 @@ function cloudPushDebounced() {
   }, CLOUD_PUSH_DELAY_MS);
 }
 
-// クラウドから読み込み、ローカルより新しければ取込んで再描画する。
+// クラウドから読み込み、ローカルと統合して再描画する。
 // data: init() が保持する実データオブジェクト（参照を維持したまま中身だけ更新する）
 function cloudPull(data) {
   if (!isCloudEnabled()) return;
@@ -275,22 +356,25 @@ function cloudPull(data) {
       return;
     }
 
-    var importedData = remote.payload.data;
-    if (!importedData || !Array.isArray(importedData.tasks)) {
+    var remoteData = remote.payload.data;
+    if (!remoteData || !Array.isArray(remoteData.tasks)) {
       setCloudSyncStatus('☁️ 同期済み');
       return;
     }
 
-    // localStorage には直接書く（saveData経由だと自分自身をまた送信してしまうため）
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(importedData));
+    var localData = loadData();
+    var merged = mergeBoards(localData, remoteData);
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     if (remote.payload.settings && Array.isArray(remote.payload.settings.skippedDays)) {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(remote.payload.settings));
     }
     cloudLastUpdatedAt = remote.updated_at;
 
     // 表示中の data オブジェクトの中身を更新（参照は維持＝他の関数からも見える）
-    data.tasks = importedData.tasks;
-    data.lastProcessedDate = importedData.lastProcessedDate;
+    data.tasks = merged.tasks;
+    data.lastProcessedDate = merged.lastProcessedDate;
+    data.deletedIds = merged.deletedIds;
     renderAll(data);
     updateCategoryDateLabels();
     setCloudSyncStatus('☁️ 他の端末の更新を反映しました');
@@ -317,6 +401,14 @@ function setupCloudSync(data) {
       if (!key) { alert('合言葉を入力してください。'); return; }
       setSyncKey(key);
       setCloudSyncStatus('☁️ 設定しました。確認中…');
+      cloudPull(data);
+    });
+  }
+
+  // 手動同期ボタン：ホーム画面に追加したスマホ版など、自動更新が届きにくい状況の保険
+  var nowBtn = document.getElementById('cloudSyncNowBtn');
+  if (nowBtn) {
+    nowBtn.addEventListener('click', function() {
       cloudPull(data);
     });
   }
@@ -470,12 +562,17 @@ function deleteTask(data, id) {
   deleteHistory.push(JSON.stringify(data.tasks));
   if (deleteHistory.length > 5) deleteHistory.shift();
 
+  if (!Array.isArray(data.deletedIds)) data.deletedIds = [];
+  var deletedAt = new Date().toISOString();
+
   // 子タスクも削除（再帰。スナップショットは最初の1回だけ取るのでここはシンプルに）
   function removeRecursive(tid) {
     var t = findTask(data, tid);
     if (!t) return;
     t.children.forEach(function(cid) { removeRecursive(cid); });
     data.tasks = data.tasks.filter(function(x) { return x.id !== tid; });
+    // クラウド同期時、他端末が持つ古いコピーからこのタスクが復活しないよう記録
+    data.deletedIds.push({ id: tid, deletedAt: deletedAt });
   }
 
   // 親から参照を除去
@@ -492,7 +589,18 @@ function deleteTask(data, id) {
 
 function undoDelete(data) {
   if (deleteHistory.length === 0) return;
+  var idsBefore = {};
+  data.tasks.forEach(function(t) { idsBefore[t.id] = true; });
+
   data.tasks = JSON.parse(deleteHistory.pop());
+
+  // 復元されたタスクは「削除記録」から外す（残っていると同期でまた消されてしまう）
+  if (Array.isArray(data.deletedIds)) {
+    var restoredIds = {};
+    data.tasks.forEach(function(t) { if (!idsBefore[t.id]) restoredIds[t.id] = true; });
+    data.deletedIds = data.deletedIds.filter(function(d) { return !restoredIds[d.id]; });
+  }
+
   saveData(data);
   renderAll(data);
 }
@@ -1653,6 +1761,10 @@ function setupEvents(data) {
         t.children.forEach(function(cid) { removeIds.add(cid); });
       });
       data.tasks = data.tasks.filter(function(t) { return !removeIds.has(t.id); });
+      // クラウド同期時、他端末が持つ古いコピーからこれらが復活しないよう記録
+      if (!Array.isArray(data.deletedIds)) data.deletedIds = [];
+      var clearedAt = new Date().toISOString();
+      removeIds.forEach(function(rid) { data.deletedIds.push({ id: rid, deletedAt: clearedAt }); });
       saveData(data);
       renderAll(data);
     });
@@ -1953,6 +2065,7 @@ function setupSettingsPanel() {
   var data = loadData();
   processDateChange(data);
   pruneCompleted(data);  // 古い完了を保管庫へ移す（メインを軽く保つ）
+  pruneTombstones(data);  // 古い削除記録を掃除
   setupModeTabs(data);  // renderAll より先（保存済みモードを復元してから描画）
   renderAll(data);
   setupEvents(data);

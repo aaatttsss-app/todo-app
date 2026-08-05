@@ -1,5 +1,5 @@
 // Service Worker — オフラインでも動くようにファイルをキャッシュする
-var CACHE_NAME = 'todo-v10';
+var CACHE_NAME = 'todo-v11';
 var FILES_TO_CACHE = [
   './',
   './index.html',

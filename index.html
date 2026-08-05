@@ -21,7 +21,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007aff">
 
-  <link rel="stylesheet" href="style.css?v=21">
+  <link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
   <header class="app-header">
@@ -146,7 +146,10 @@
             <input type="text" id="cloudSyncKeyInput" class="task-input" placeholder="合言葉（長く推測されにくいもの）" autocomplete="off">
             <button class="task-add-btn" id="cloudSyncKeySave">設定</button>
           </div>
-          <p class="cloud-sync-status" id="cloudSyncStatus"></p>
+          <div class="cloud-sync-status-row">
+            <p class="cloud-sync-status" id="cloudSyncStatus"></p>
+            <button class="cloud-sync-now-btn" id="cloudSyncNowBtn" title="今すぐ他の端末の更新を確認する">🔄 今すぐ同期</button>
+          </div>
         </div>
       </div>
     </details>
@@ -227,7 +230,7 @@
   <!-- クラウド同期の接続情報。config.js が無い場合は404だが実害なし（純ローカル動作） -->
   <script src="config.js" onerror="/* config.js未設置＝クラウド同期は無効のまま */"></script>
   <script src="icons/qrcode.min.js?v=1"></script>
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=18"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function() {});
