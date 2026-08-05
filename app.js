@@ -266,10 +266,15 @@ function cloudRpc(fnName, body) {
 // 以前は「新しい方で丸ごと上書き」だったため、A端末で追加したタスクをpullする前に
 // B端末が保存すると、B端末の古い状態がそのままアップロードされ、Aの追加が消えてしまっていた。
 // これを防ぐため、id単位で「両方に無いものは持ち寄る（和集合）」方式にする。
-// 同じidが両方にある場合はローカル優先（今まさに編集している側を尊重）。
 // 「削除記録（deletedIds）」に載っているidは、どちらか一方にしか残っていなくても
 // 復活させない（削除操作を正しく伝播させるため）。
-function mergeBoards(localData, remoteData) {
+//
+// 同じidが両方にあった場合にどちらの中身を採用するかは preferLocal で決める：
+// - push（自分の変更を送る）時は preferLocal=true（今まさに自分が編集した内容を優先）
+// - pull（相手の変更を取り込む）時は preferLocal=false（相手の変更を反映させる）
+// これを両方とも「常にローカル優先」にしていたのが以前の不具合の原因で、
+// pullが常に自分の古い状態を優先してしまい、相手側でのWCM変更等が反映されなかった。
+function mergeBoards(localData, remoteData, preferLocal) {
   var deletedMap = {};
   (localData.deletedIds || []).forEach(function(d) { deletedMap[d.id] = d; });
   (remoteData.deletedIds || []).forEach(function(d) {
@@ -277,8 +282,13 @@ function mergeBoards(localData, remoteData) {
   });
 
   var taskMap = {};
-  (remoteData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });
-  (localData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });  // 同一id競合はローカル優先
+  if (preferLocal) {
+    (remoteData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });
+    (localData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });  // 後に入れた方が勝つ＝ローカル優先
+  } else {
+    (localData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });
+    (remoteData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });  // 後に入れた方が勝つ＝リモート優先
+  }
 
   var mergedTasks = Object.keys(taskMap)
     .filter(function(id) { return !deletedMap[id]; })
@@ -315,7 +325,7 @@ function cloudPushDebounced(data) {
       var remote = rows && rows[0];
       var remoteData = (remote && remote.payload && remote.payload.data) ? remote.payload.data : { tasks: [], deletedIds: [] };
       var localData = loadData();
-      var merged = mergeBoards(localData, remoteData);
+      var merged = mergeBoards(localData, remoteData, true);  // push＝自分の変更を優先
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       if (data) {
@@ -338,14 +348,15 @@ function cloudPushDebounced(data) {
 
 // クラウドから読み込み、ローカルと統合して再描画する。
 // data: init() が保持する実データオブジェクト（参照を維持したまま中身だけ更新する）
+// Promiseを返す（起動時は init() 側でこれを待ってから後続のローカル処理に進む）
 function cloudPull(data) {
-  if (!isCloudEnabled()) return;
+  if (!isCloudEnabled()) return Promise.resolve();
   var key = getSyncKey();
-  if (!key) return;
-  if (cloudPushTimer) return;  // アップロード待ち中は上書きしない（編集中データの保護）
+  if (!key) return Promise.resolve();
+  if (cloudPushTimer) return Promise.resolve();  // アップロード待ち中は上書きしない（編集中データの保護）
 
   setCloudSyncStatus('☁️ 確認中…');
-  cloudRpc('get_board', { p_key: key }).then(function(rows) {
+  return cloudRpc('get_board', { p_key: key }).then(function(rows) {
     var remote = rows && rows[0];
     if (!remote || !remote.payload) {
       setCloudSyncStatus('☁️ 同期済み（まだデータなし）');
@@ -363,7 +374,7 @@ function cloudPull(data) {
     }
 
     var localData = loadData();
-    var merged = mergeBoards(localData, remoteData);
+    var merged = mergeBoards(localData, remoteData, false);  // pull＝相手の変更を優先
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     if (remote.payload.settings && Array.isArray(remote.payload.settings.skippedDays)) {
@@ -381,6 +392,25 @@ function cloudPull(data) {
   }).catch(function() {
     setCloudSyncStatus('☁️ 通信できませんでした');
   });
+}
+
+// 起動直後、ローカルの後処理（日付ロールオーバー・保管庫移動等）より前に
+// 一度だけクラウドを確認しに行く。
+//
+// 順序を逆にする（先にローカル後処理→後でpull）と、後処理内の saveData が
+// クラウドへの送信を予約してしまい、その「送信待ちガード」のせいで
+// この起動時pullがまるごとスキップされてしまう。すると、他端末の更新
+// （例：WCMを付けた等、既存タスクへの変更）を取りこぼしたまま
+// ローカルの（何かのついでの）保存が走り、それがローカル優先でクラウドを
+// 上書きしてしまい、他端末の変更が消えたように見える不具合が起きていた。
+//
+// 通信が遅い/失敗する場合に永久に固まらないよう、3秒でタイムアウトして
+// ローカルデータのまま先に進む（pull自体は裏で続行し、届き次第反映される）。
+function initialCloudPull(data) {
+  if (!isCloudEnabled() || !getSyncKey()) return Promise.resolve();
+  var pulled = cloudPull(data);
+  var timeout = new Promise(function(resolve) { setTimeout(resolve, 3000); });
+  return Promise.race([pulled, timeout]);
 }
 
 function setupCloudSync(data) {
@@ -413,9 +443,7 @@ function setupCloudSync(data) {
     });
   }
 
-  // 起動時に一度、以後は復帰時・軽いポーリングで確認
-  if (getSyncKey()) cloudPull(data);
-
+  // 起動時の初回pullは init() 側で既に実行済み。以後は復帰時・軽いポーリングで確認
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden) cloudPull(data);
   });
@@ -2063,16 +2091,21 @@ function setupSettingsPanel() {
   if (handleHashImport()) { location.reload(); return; }
 
   var data = loadData();
-  processDateChange(data);
-  pruneCompleted(data);  // 古い完了を保管庫へ移す（メインを軽く保つ）
-  pruneTombstones(data);  // 古い削除記録を掃除
-  setupModeTabs(data);  // renderAll より先（保存済みモードを復元してから描画）
-  renderAll(data);
-  setupEvents(data);
-  setupTouchDrag(data);
-  setupSettingsPanel();
-  setupCloudSync(data);
-  updateCategoryDateLabels();
+
+  // クラウド同期が有効な場合、ローカルの後処理（日付ロールオーバー等）より
+  // 必ず先に一度クラウドを確認する（理由は initialCloudPull のコメント参照）
+  initialCloudPull(data).then(function() {
+    processDateChange(data);
+    pruneCompleted(data);  // 古い完了を保管庫へ移す（メインを軽く保つ）
+    pruneTombstones(data);  // 古い削除記録を掃除
+    setupModeTabs(data);  // renderAll より先（保存済みモードを復元してから描画）
+    renderAll(data);
+    setupEvents(data);
+    setupTouchDrag(data);
+    setupSettingsPanel();
+    setupCloudSync(data);
+    updateCategoryDateLabels();
+  });
 })();
 
 // ===== ドラッグ中のエッジ自動スクロール（枝葉） =====
