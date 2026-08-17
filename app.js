@@ -197,7 +197,9 @@ function pruneCompleted(data) {
   if (!Array.isArray(data.deletedIds)) data.deletedIds = [];
   var archivedAt = new Date().toISOString();
   Object.keys(toArchiveIds).forEach(function(aid) {
-    data.deletedIds.push({ id: aid, deletedAt: archivedAt });
+    // reason:'archived' ＝「消した」のではなく「保管庫へ移した」。
+    // 他端末はこの印を見て、自分の保管庫にも取り込んでから盤から外す（履歴を失わないため）。
+    data.deletedIds.push({ id: aid, deletedAt: archivedAt, reason: 'archived' });
   });
 
   saveData(data);
@@ -227,6 +229,14 @@ var CLOUD_POLL_MS = 20000;
 var cloudPushTimer = null;
 var cloudPollTimer = null;
 var cloudLastUpdatedAt = null;  // 直近で同期済みの updated_at（自分の更新をpullし直さないため）
+var cloudPushInFlight = false;  // 送信の通信中フラグ（この間に受信が割り込むと送信内容が巻き戻る）
+
+// 送信予約中〜送信完了までの間は、受信（pull）で盤を書き換えてはいけない。
+// タイマー待ちだけを見ていると、通信している数百ミリ秒の間が無防備になり、
+// その隙に届いた「送信前の古いリモート」で、送ったばかりの変更が巻き戻る。
+function isCloudPushPending() {
+  return !!cloudPushTimer || cloudPushInFlight;
+}
 
 function isCloudEnabled() {
   return !!(window.TODO_CLOUD && window.TODO_CLOUD.url && window.TODO_CLOUD.anonKey);
@@ -290,9 +300,15 @@ function mergeBoards(localData, remoteData, preferLocal) {
     (remoteData.tasks || []).forEach(function(t) { taskMap[t.id] = t; });  // 後に入れた方が勝つ＝リモート優先
   }
 
-  var mergedTasks = Object.keys(taskMap)
-    .filter(function(id) { return !deletedMap[id]; })
-    .map(function(id) { return taskMap[id]; });
+  var mergedTasks = [];
+  var archivedAway = [];   // 「保管庫行き」の記録により盤から外れるタスク（履歴として拾い直す）
+  Object.keys(taskMap).forEach(function(id) {
+    var tomb = deletedMap[id];
+    if (!tomb) { mergedTasks.push(taskMap[id]); return; }
+    // 他端末で「保管庫へ移動」された分は、こちらの保管庫にも入れてから盤から外す。
+    // これをしないと、その端末の振り返り履歴からタスクが完全に消えてしまう。
+    if (tomb.reason === 'archived') archivedAway.push(taskMap[id]);
+  });
 
   // 削除済みタスクを指す子タスク参照が残らないよう軽く掃除（無くても実害はないが綺麗にしておく）
   var mergedIds = {};
@@ -303,11 +319,32 @@ function mergeBoards(localData, remoteData, preferLocal) {
     }
   });
 
+  // 日付ロールオーバーの基準日は「進んでいる方」を採用する。
+  // ローカル優先にすると、他端末が既に繰り上げ済みの盤に対して自端末がもう一度
+  // 繰り上げを実行してしまい、本日のタスクが未処理へ飛ぶ等の消失に見える動きが起きる。
+  var localLPD = localData.lastProcessedDate || '';
+  var remoteLPD = remoteData.lastProcessedDate || '';
+  var mergedLPD = (localLPD > remoteLPD) ? localLPD : remoteLPD;
+
   return {
-    lastProcessedDate: localData.lastProcessedDate || remoteData.lastProcessedDate,
+    lastProcessedDate: mergedLPD || localLPD || remoteLPD,
     tasks: mergedTasks,
-    deletedIds: Object.keys(deletedMap).map(function(id) { return deletedMap[id]; })
+    deletedIds: Object.keys(deletedMap).map(function(id) { return deletedMap[id]; }),
+    archivedAway: archivedAway
   };
+}
+
+// 他端末で保管庫へ移されたタスクを、この端末の保管庫にも取り込む（振り返り履歴を失わないため）
+function absorbArchivedAway(tasks) {
+  if (!tasks || tasks.length === 0) return;
+  var archive = loadArchive();
+  var existing = {};
+  archive.forEach(function(t) { existing[t.id] = true; });
+  var added = false;
+  tasks.forEach(function(t) {
+    if (!existing[t.id]) { archive.push(t); added = true; }
+  });
+  if (added) saveArchive(archive);
 }
 
 // ローカルの変更をクラウドへ送る（saveDataのたびに呼ばれるが、少し待ってまとめて送る）。
@@ -321,11 +358,13 @@ function cloudPushDebounced(data) {
   setCloudSyncStatus('☁️ 同期中…');
   cloudPushTimer = setTimeout(function() {
     cloudPushTimer = null;
+    cloudPushInFlight = true;   // 通信が終わるまで pull に割り込ませない
     cloudRpc('get_board', { p_key: key }).then(function(rows) {
       var remote = rows && rows[0];
       var remoteData = (remote && remote.payload && remote.payload.data) ? remote.payload.data : { tasks: [], deletedIds: [] };
       var localData = loadData();
       var merged = mergeBoards(localData, remoteData, true);  // push＝自分の変更を優先
+      absorbArchivedAway(merged.archivedAway);  // 他端末が保管庫へ移した分を履歴として拾う
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
       if (data) {
@@ -342,6 +381,8 @@ function cloudPushDebounced(data) {
       setCloudSyncStatus('☁️ 同期済み');
     }).catch(function() {
       setCloudSyncStatus('☁️ 送信できませんでした（次回再試行）');
+    }).then(function() {
+      cloudPushInFlight = false;   // 成功・失敗どちらでも必ず解除する
     });
   }, CLOUD_PUSH_DELAY_MS);
 }
@@ -353,10 +394,17 @@ function cloudPull(data) {
   if (!isCloudEnabled()) return Promise.resolve();
   var key = getSyncKey();
   if (!key) return Promise.resolve();
-  if (cloudPushTimer) return Promise.resolve();  // アップロード待ち中は上書きしない（編集中データの保護）
+  if (isCloudPushPending()) return Promise.resolve();  // アップロード中は上書きしない（編集中データの保護）
 
   setCloudSyncStatus('☁️ 確認中…');
   return cloudRpc('get_board', { p_key: key }).then(function(rows) {
+    // 取得している間に編集や送信が始まっていたら、ここで取り込むと
+    // 送信前の古い内容で編集を巻き戻してしまうため中止する
+    if (isCloudPushPending()) {
+      setCloudSyncStatus('☁️ 同期中…');
+      return;
+    }
+
     var remote = rows && rows[0];
     if (!remote || !remote.payload) {
       setCloudSyncStatus('☁️ 同期済み（まだデータなし）');
@@ -375,6 +423,7 @@ function cloudPull(data) {
 
     var localData = loadData();
     var merged = mergeBoards(localData, remoteData, false);  // pull＝相手の変更を優先
+    absorbArchivedAway(merged.archivedAway);  // 他端末が保管庫へ移した分を履歴として拾う
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     if (remote.payload.settings && Array.isArray(remote.payload.settings.skippedDays)) {
