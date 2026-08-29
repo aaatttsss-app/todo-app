@@ -349,6 +349,22 @@ function absorbArchivedAway(tasks) {
 
 // ローカルの変更をクラウドへ送る（saveDataのたびに呼ばれるが、少し待ってまとめて送る）。
 // 送る前に必ず一度リモートを取得して統合してからアップロードする（＝取りこぼし防止）。
+// クラウド同期由来の自動再描画が、入力中の欄を壊してカーソルを飛ばさないようにするガード。
+// renderAll は毎回 innerHTML を作り直すため、子タスクなどの入力欄にカーソルがある最中に
+// 同期の再描画が割り込むと、入力途中の文字ごと欄が消えてしまう（連続入力時に体感しやすい）。
+// ローカルの操作（追加・削除・チェック等）自身が呼ぶ renderAll はこの対象外＝今まで通り即時反映。
+function isTypingInInput() {
+  var el = document.activeElement;
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+}
+
+// 入力中なら今回の描画は見送る。data 自体は既に最新化済みなので消えることはなく、
+// 次にユーザー自身の操作で renderAll が走った瞬間（次のタスク追加等）に自然と画面へ反映される。
+function renderAllUnlessTyping(data) {
+  if (isTypingInInput()) return;
+  renderAll(data);
+}
+
 function cloudPushDebounced(data) {
   if (!isCloudEnabled()) return;
   var key = getSyncKey();
@@ -371,7 +387,7 @@ function cloudPushDebounced(data) {
         data.tasks = merged.tasks;
         data.lastProcessedDate = merged.lastProcessedDate;
         data.deletedIds = merged.deletedIds;
-        renderAll(data);
+        renderAllUnlessTyping(data);
         updateCategoryDateLabels();
       }
 
@@ -435,7 +451,7 @@ function cloudPull(data) {
     data.tasks = merged.tasks;
     data.lastProcessedDate = merged.lastProcessedDate;
     data.deletedIds = merged.deletedIds;
-    renderAll(data);
+    renderAllUnlessTyping(data);
     updateCategoryDateLabels();
     setCloudSyncStatus('☁️ 他の端末の更新を反映しました');
   }).catch(function() {
