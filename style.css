@@ -202,6 +202,12 @@ body {
   flex-shrink: 0;
 }
 
+/* 期日バッジ（本日〜そのうちで、期日つきタスクにだけ表示。完了日/追加日と紛れないよう色を分ける） */
+.task-date--due {
+  color: #ff9500;
+  font-weight: 600;
+}
+
 /* ===== Main Layout ===== */
 .app-main {
   max-width: 960px;
@@ -1375,6 +1381,41 @@ body {
   font-weight: 700;
 }
 
+/* 移動メニュー内の期日入力（ネイティブの date input を使用） */
+.move-menu-due-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 4px;
+}
+
+.move-menu-due-input {
+  flex: 1;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1d1d1f;
+  border: 1px solid #e2e2e6;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #fff;
+  min-width: 0;
+}
+
+.move-menu-due-clear {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #999;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 4px 2px;
+  font-family: inherit;
+}
+
+.move-menu-due-clear:hover {
+  color: #ff3b30;
+}
+
 /* ==================================================================== */
 /* 取込ダイアログ（共有コード / JSONファイル）                          */
 /* ==================================================================== */
@@ -1559,7 +1600,243 @@ body {
   .task-move-btn,
   .header-menu-btn,
   .header-data-btn,
+  .header-calendar-btn,
+  .calendar-view,
   .task-space-dot { display: none !important; }
+}
+
+/* ===== 表示切替の共通ユーティリティ（本日〜処理済み ⇄ カレンダー） =====
+   .categories-grid 等は独自の display 指定を持つため、素の [hidden] 属性だけでは
+   隠せない（同specificityではauthor側が勝つ）。専用クラスで確実に上書きする。 */
+.view-hidden {
+  display: none !important;
+}
+
+/* ===== カレンダー表示（📅ボタンでメイン表示と切替。別ページには遷移しない） ===== */
+.header-calendar-btn {
+  font: inherit;
+  cursor: pointer;
+}
+
+.header-calendar-btn--active {
+  background: #eaf2ff;
+  border-color: #007aff;
+  color: #005ecb;
+}
+
+.calendar-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.cal-card,
+.cal-day-panel {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 16px;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.cal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 110px;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.cal-nav {
+  background: #f7f7f9;
+  border: 1px solid #e2e2e6;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #555;
+  font-weight: 700;
+  transition: background 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+}
+.cal-nav:hover {
+  background: #f0f4ff;
+  border-color: #007aff;
+  color: #007aff;
+}
+
+.cal-today-btn {
+  background: #f7f7f9;
+  border: 1px solid #e2e2e6;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #555;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.cal-today-btn:hover {
+  background: #f0f4ff;
+  border-color: #007aff;
+  color: #007aff;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+  text-align: center;
+  font-size: 11px;
+  color: #999;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.cal-weekdays .cal-sat { color: #5b8def; }
+.cal-weekdays .cal-sun { color: #e0575a; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-cell {
+  aspect-ratio: 1;
+  background: #f5f5f7;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 4px;
+  font-family: inherit;
+}
+
+.cal-blank {
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.cal-cell:not(.cal-blank):hover {
+  transform: scale(1.08);
+  z-index: 2;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.cal-cell.selected {
+  border: 2px solid #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.16);
+  z-index: 3;
+}
+
+.cal-cell.today .cal-num {
+  font-weight: 800;
+}
+.cal-cell.today::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  background: #007aff;
+  border-radius: 999px;
+}
+
+.cal-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  position: absolute;
+  top: 4px;
+  left: 6px;
+}
+
+.cal-dot {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 999px;
+  padding: 1px 5px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* ヒートマップ（期日つきタスクの多さ。オレンジ系＝期日バッジと同じトーン） */
+.heat-0 { background: #f5f5f7; }
+.heat-1 { background: #ffe9c7; }
+.heat-2 { background: #ffcf87; }
+.heat-3 { background: #ffab40; }
+.heat-4 { background: #ff9500; }
+.heat-3 .cal-num,
+.heat-4 .cal-num { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.heat-4 .cal-dot { background: rgba(255, 255, 255, 0.3); }
+
+.cal-hint {
+  font-size: 12px;
+  color: #999;
+  margin: 12px 2px 0;
+  line-height: 1.5;
+}
+
+.cal-day-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.cal-day-tasks {
+  display: flex;
+  flex-direction: column;
+  min-height: 40px;
+}
+
+.cal-day-empty {
+  font-size: 13px;
+  color: #999;
+  padding: 8px 2px;
+}
+
+.cal-day-add {
+  border-top: 1px solid #f0f0f0;
+  margin-top: 10px;
+  padding: 10px 0 0;
+}
+
+.cal-day-add[hidden] { display: none; }
+
+@media (max-width: 640px) {
+  .calendar-view {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ===== iOSでの入力時ズーム対策 =====

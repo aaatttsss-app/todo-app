@@ -56,7 +56,8 @@ function createTask(text, category) {
     children: [],
     createdAt: new Date().toISOString(),
     flags: { will: false, can: false, must: false },
-    space: 'other'
+    space: 'other',
+    dueDate: null   // 'YYYY-MM-DD' or null。設定されていれば日々の自動フローの対象になる
   };
 }
 
@@ -634,6 +635,20 @@ function addTask(data, text, category) {
   return task;
 }
 
+// カレンダー画面から、指定日を期日として新規タスクを追加する。
+// カテゴリは期日までの残り日数から自動算出（本日〜そのうちのどこかに入る）。
+function addTaskWithDueDate(data, text, dueDate) {
+  var todayDate = new Date(todayString() + 'T00:00:00');
+  var category = computeCategoryForDueDate(dueDate, todayDate);
+  var task = createTask(text, category);
+  task.space = (currentMode !== 'all' && SPACES[currentMode]) ? currentMode : 'other';
+  task.order = getNextOrder(data, category);
+  task.dueDate = dueDate;
+  data.tasks.push(task);
+  saveData(data);
+  return task;
+}
+
 function addChildTask(data, text, parentId) {
   var parent = findTask(data, parentId);
   if (!parent) return;
@@ -739,6 +754,47 @@ function setTaskSpace(data, taskId, space) {
   renderAll(data);
 }
 
+// タスクの期日（dueDate）を設定/解除。子タスクは同期しない（期日は親のみが持つ概念）。
+// 設定・解除したその場でカテゴリを確定させる（次の日次処理を待たない）。
+function setTaskDueDate(data, taskId, dueDate) {
+  var task = findTask(data, taskId);
+  if (!task || task.parentId !== null) return;
+  task.dueDate = dueDate || null;
+  if (task.dueDate && (task.category === 'today' || task.category === 'tomorrow' ||
+      task.category === 'soon' || task.category === 'someday')) {
+    var todayDate = new Date(todayString() + 'T00:00:00');
+    var newCategory = computeCategoryForDueDate(task.dueDate, todayDate);
+    if (newCategory !== task.category) moveParentToCategory(data, task, newCategory);
+  }
+  saveData(data);
+  renderAll(data);
+}
+
+// 期日までの残り日数から、置くべきカテゴリを算出する純粋関数
+// 0日以下(当日/過ぎている)→本日, 1日→明日, 2〜7日→近日, 8日以上→そのうち
+function computeCategoryForDueDate(dueDate, todayDate) {
+  var due = new Date(dueDate + 'T00:00:00');
+  var diffDays = Math.round((due - todayDate) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return 'today';
+  if (diffDays === 1) return 'tomorrow';
+  if (diffDays <= 7) return 'soon';
+  return 'someday';
+}
+
+// 期日つきタスクを、日々の自動フローで正しいカテゴリへ置き直す。
+// 対象は today/tomorrow/soon/someday にいる期日つきタスクのみ
+// （未処理/処理済みに一度入ったものはここでは触らない＝以降は手動管理）。
+function applyDueDateFlow(data, todayDate) {
+  var parents = data.tasks.filter(function(t) { return t.parentId === null; });
+  parents.forEach(function(task) {
+    if (!task.dueDate) return;
+    if (task.category !== 'today' && task.category !== 'tomorrow' &&
+        task.category !== 'soon' && task.category !== 'someday') return;
+    var newCategory = computeCategoryForDueDate(task.dueDate, todayDate);
+    if (newCategory !== task.category) moveParentToCategory(data, task, newCategory);
+  });
+}
+
 function processOneDay(data) {
   // 親タスクのみが対象
   var parents = data.tasks.filter(function(t) { return t.parentId === null; });
@@ -793,6 +849,10 @@ function processDateChange(data) {
   for (var j = 0; j < processCount; j++) {
     processOneDay(data);
   }
+
+  // 期日つきタスクを、期日までの残り日数に応じたカテゴリへ置き直す
+  // （processOneDayと同じスキップ曜日ガードの内側に置くことで、skip日にズレて動くのを防ぐ）
+  applyDueDateFlow(data, todayDate);
 
   data.lastProcessedDate = today;
   saveData(data);
@@ -897,6 +957,14 @@ function buildParentTaskEl(data, task) {
     }
     dateSpan.textContent = dateStr;
     item.appendChild(dateSpan);
+  } else if (task.dueDate && (task.category === 'today' || task.category === 'tomorrow' ||
+      task.category === 'soon' || task.category === 'someday')) {
+    // 期日つきタスク（本日〜そのうち）は期日を表示。完了日/追加日と紛れないよう📅を付ける
+    var dueSpan = document.createElement('span');
+    dueSpan.className = 'task-date task-date--due';
+    dueSpan.title = '期日: ' + task.dueDate;
+    dueSpan.textContent = '📅 ' + task.dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$2/$3');
+    item.appendChild(dueSpan);
   }
 
   // Will/Can/Must（PC版は行内に常時表示。スマホ版はCSSで隠し、展開時のメタ行にのみ表示）
@@ -1176,6 +1244,156 @@ function renderAll(data) {
       listEl.appendChild(buildParentTaskEl(data, task));
     });
   });
+
+  // カレンダー表示中なら、そちらも同じデータで更新する
+  // （タスクの変更操作は基本すべて renderAll を呼ぶだけなので、ここに一本化しておけば
+  //   個々の操作側でカレンダー用の再描画を書き足す必要がない）
+  if (calendarViewActive) renderCalendarView(data);
+}
+
+// ===== カレンダー表示（メイン内切替・別ページにはしない） =====
+// 期日(dueDate)つきタスクを月カレンダーで俯瞰し、日付をクリックしてその日の
+// タスク確認・追加ができる画面。archive/archive.js の月カレンダー描画パターン
+// （完了数のヒートマップ）を、期日タスク数のヒートマップとして流用している。
+
+var calendarViewActive = false;
+var calendarState = {
+  month: monthStart(new Date()),  // 表示中の月（各月1日のDateオブジェクト）
+  selectedDate: null              // クリックで選択中の日付('YYYY-MM-DD')
+};
+
+function monthStart(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function monthEnd(d)   { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+
+// 表示/非表示を切り替える。本日〜処理済みの通常表示とモードタブを隠し、
+// カレンダー用の要素を出す（同じページ内の切替＝クラウド同期コードには一切触れない）
+function toggleCalendarView(data) {
+  calendarViewActive = !calendarViewActive;
+
+  document.querySelectorAll('.categories-grid, .categories-storage').forEach(function(el) {
+    el.classList.toggle('view-hidden', calendarViewActive);
+  });
+  var modeTabs = document.getElementById('modeTabs');
+  if (modeTabs) modeTabs.classList.toggle('view-hidden', calendarViewActive);
+  var calView = document.getElementById('calendarView');
+  if (calView) calView.classList.toggle('view-hidden', !calendarViewActive);
+  var toggleBtn = document.getElementById('calendarToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('header-calendar-btn--active', calendarViewActive);
+    toggleBtn.title = calendarViewActive ? 'いつものリスト表示に戻る' : 'カレンダー表示に切り替え';
+  }
+
+  if (calendarViewActive) renderCalendarView(data);
+}
+
+// 期日つきタスク(親のみ)を日付文字列でグルーピングした件数マップ
+function countDueByDate(data) {
+  var counts = {};
+  data.tasks.forEach(function(t) {
+    if (t.parentId !== null || !t.dueDate) return;
+    counts[t.dueDate] = (counts[t.dueDate] || 0) + 1;
+  });
+  return counts;
+}
+
+function renderCalendarView(data) {
+  var month = calendarState.month;
+  var titleEl = document.getElementById('calTitle');
+  if (titleEl) titleEl.textContent = month.getFullYear() + '年 ' + (month.getMonth() + 1) + '月';
+
+  var counts = countDueByDate(data);
+  var mStart = monthStart(month);
+  var mEnd = monthEnd(month);
+  var maxInMonth = 0;
+  Object.keys(counts).forEach(function(k) {
+    var d = new Date(k + 'T00:00:00');
+    if (d >= mStart && d <= mEnd && counts[k] > maxInMonth) maxInMonth = counts[k];
+  });
+
+  var firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+  var dow = firstDay.getDay();
+  var leadingBlanks = dow === 0 ? 6 : dow - 1;  // 週の始まりを月曜にそろえる
+  var lastDate = mEnd.getDate();
+
+  var grid = document.getElementById('calGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  for (var i = 0; i < leadingBlanks; i++) {
+    var blank = document.createElement('div');
+    blank.className = 'cal-cell cal-blank';
+    grid.appendChild(blank);
+  }
+
+  for (var d = 1; d <= lastDate; d++) {
+    var cellDate = new Date(month.getFullYear(), month.getMonth(), d);
+    var dateStr  = formatLocalDate(cellDate);
+    var count    = counts[dateStr] || 0;
+
+    var cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'cal-cell';
+    cell.dataset.date = dateStr;
+
+    var level = 0;
+    if (count > 0 && maxInMonth > 0) {
+      level = Math.min(4, Math.max(1, Math.ceil((count / maxInMonth) * 4)));
+    }
+    cell.classList.add('heat-' + level);
+
+    if (dateStr === calendarState.selectedDate) cell.classList.add('selected');
+    if (dateStr === todayString())               cell.classList.add('today');
+
+    var inner = '<span class="cal-num">' + d + '</span>';
+    if (count > 0) inner += '<span class="cal-dot">' + count + '</span>';
+    cell.innerHTML = inner;
+
+    cell.addEventListener('click', function() {
+      calendarState.selectedDate = this.dataset.date;
+      renderCalendarView(data);
+    });
+    grid.appendChild(cell);
+  }
+
+  renderCalDayPanel(data);
+}
+
+function renderCalDayPanel(data) {
+  var titleEl = document.getElementById('calDayTitle');
+  var listEl  = document.getElementById('calDayTasks');
+  var addRow  = document.getElementById('calDayAdd');
+  if (!titleEl || !listEl) return;
+
+  var ds = calendarState.selectedDate;
+  if (!ds) {
+    titleEl.textContent = '日付を選んでください';
+    listEl.innerHTML = '';
+    if (addRow) addRow.hidden = true;
+    return;
+  }
+
+  var d = new Date(ds + 'T00:00:00');
+  var wd = WEEKDAYS_JP[d.getDay()];
+  titleEl.textContent = (d.getMonth() + 1) + '/' + d.getDate() + '（' + wd + '）の期日タスク';
+
+  listEl.innerHTML = '';
+  var tasks = data.tasks.filter(function(t) {
+    return t.parentId === null && t.dueDate === ds;
+  }).sort(function(a, b) { return a.order - b.order; });
+
+  if (tasks.length === 0) {
+    var empty = document.createElement('p');
+    empty.className = 'cal-day-empty';
+    empty.textContent = 'この日が期日のタスクはありません';
+    listEl.appendChild(empty);
+  } else {
+    // 既存の行描画(チェック・編集・削除・⋮・展開)をそのまま再利用する
+    tasks.forEach(function(task) {
+      listEl.appendChild(buildParentTaskEl(data, task));
+    });
+  }
+
+  if (addRow) addRow.hidden = false;
 }
 
 // ===== ドラッグ&ドロップ =====
@@ -1397,6 +1615,46 @@ function openMoveMenu(data, task, anchorBtn) {
     if (isCurrent) item.classList.add('move-menu-item--current');
     menu.appendChild(item);
   });
+
+  // 期日（設定すると日々の自動フローの対象になる。親タスクは常にこの関数の対象なので無条件で表示）
+  var dueSep = document.createElement('div');
+  dueSep.className = 'move-menu-sep';
+  menu.appendChild(dueSep);
+
+  var dueLbl = document.createElement('div');
+  dueLbl.className = 'move-menu-label';
+  dueLbl.textContent = '期日';
+  menu.appendChild(dueLbl);
+
+  var dueRow = document.createElement('div');
+  dueRow.className = 'move-menu-due-row';
+
+  var dueInput = document.createElement('input');
+  dueInput.type = 'date';
+  dueInput.className = 'move-menu-due-input';
+  if (task.dueDate) dueInput.value = task.dueDate;
+  dueInput.addEventListener('click', function(e) { e.stopPropagation(); });
+  dueInput.addEventListener('change', function() {
+    setTaskDueDate(data, task.id, dueInput.value || null);
+    closeMoveMenu();
+  });
+  dueRow.appendChild(dueInput);
+
+  if (task.dueDate) {
+    var dueClear = document.createElement('button');
+    dueClear.type = 'button';
+    dueClear.className = 'move-menu-due-clear';
+    dueClear.textContent = '✕ 外す';
+    dueClear.title = '期日を外す';
+    dueClear.addEventListener('click', function(e) {
+      e.stopPropagation();
+      setTaskDueDate(data, task.id, null);
+      closeMoveMenu();
+    });
+    dueRow.appendChild(dueClear);
+  }
+
+  menu.appendChild(dueRow);
 
   showMenuAt(menu, anchorBtn);
 }
@@ -1872,6 +2130,60 @@ function setupEvents(data) {
       undoDelete(data);
     }
   });
+
+  // カレンダー表示（📅ボタンでメイン表示と切替）
+  var calendarToggleBtn = document.getElementById('calendarToggleBtn');
+  if (calendarToggleBtn) {
+    calendarToggleBtn.addEventListener('click', function() {
+      toggleCalendarView(data);
+    });
+  }
+  var calPrev = document.getElementById('calPrev');
+  if (calPrev) {
+    calPrev.addEventListener('click', function() {
+      calendarState.month = new Date(calendarState.month.getFullYear(), calendarState.month.getMonth() - 1, 1);
+      renderCalendarView(data);
+    });
+  }
+  var calNext = document.getElementById('calNext');
+  if (calNext) {
+    calNext.addEventListener('click', function() {
+      calendarState.month = new Date(calendarState.month.getFullYear(), calendarState.month.getMonth() + 1, 1);
+      renderCalendarView(data);
+    });
+  }
+  var calToday = document.getElementById('calToday');
+  if (calToday) {
+    calToday.addEventListener('click', function() {
+      calendarState.month = monthStart(new Date());
+      calendarState.selectedDate = todayString();
+      renderCalendarView(data);
+    });
+  }
+
+  // カレンダーの日付パネルからのタスク追加
+  var calDayAddInput = document.getElementById('calDayAddInput');
+  var calDayAddBtn   = document.getElementById('calDayAddBtn');
+  if (calDayAddInput && calDayAddBtn) {
+    function handleCalDayAdd() {
+      var text = calDayAddInput.value.trim();
+      var ds = calendarState.selectedDate;
+      if (!text || !ds) return;
+      addTaskWithDueDate(data, text, ds);
+      renderAll(data);
+      setTimeout(function() {
+        calDayAddInput.value = '';
+        calDayAddInput.focus();
+      }, 0);
+    }
+    calDayAddBtn.addEventListener('click', handleCalDayAdd);
+    calDayAddInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault();
+        handleCalDayAdd();
+      }
+    });
+  }
 }
 
 // ===== タッチドラッグ（スマホでの指ドラッグ・枝葉モジュール） =====
