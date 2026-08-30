@@ -17,6 +17,7 @@
     tasks: [],
     isSample: false,
     statFilter: 'all',     // 'all' | 'day' | 'week' | 'month' | 'year'  ← WCM 期間絞り込み
+    spaceFilter: 'all',    // 'all' | 'work' | 'private' | 'other'      ← 区分絞り込み（期間フィルタと併用可）
     searchQuery: ''        // 検索クエリ（空文字 = 検索モードOFF）
   };
 
@@ -123,6 +124,13 @@
     return !!(task.flags && task.flags[key]);
   }
 
+  // state.spaceFilter に基づく絞り込み（'all'なら素通し）。
+  // space未設定のタスクは本体アプリと同じ扱いで「その他」とみなす。
+  function filterBySpace(tasks) {
+    if (state.spaceFilter === 'all') return tasks;
+    return tasks.filter(function(t) { return (t.space || 'other') === state.spaceFilter; });
+  }
+
   // ===== 集計 =====
 
   function countInRange(start, end) {
@@ -187,9 +195,10 @@
     setText('statMonth', countInRange(startOfMonth(today), endOfMonth(today)));
     setText('statYear',  countInRange(startOfYear(today),  endOfYear(today)));
 
-    // WCM: statFilter に基づく期間で集計
+    // WCM: statFilter(期間) と spaceFilter(区分) の両方で絞り込んで集計
     var r = getRangeForStatFilter(state.statFilter);
     var wcmTasks = r.start ? tasksInRange(r.start, r.end) : state.tasks;
+    wcmTasks = filterBySpace(wcmTasks);
     renderWcm(wcmTasks, r.label);
 
     // アクティブカードの見た目を更新
@@ -350,7 +359,7 @@
         break;
     }
 
-    renderTaskList(tasksInRange(range.start, range.end), title);
+    renderTaskList(filterBySpace(tasksInRange(range.start, range.end)), title);
   }
 
   function renderSearchResults(query) {
@@ -358,7 +367,7 @@
     var tasks = state.tasks.filter(function(t) {
       return t.text.toLowerCase().indexOf(lq) !== -1;
     });
-    renderTaskList(tasks, '「' + query + '」の検索結果');
+    renderTaskList(filterBySpace(tasks), '「' + query + '」の検索結果');
   }
 
   function renderTaskList(tasks, title) {
@@ -500,6 +509,20 @@
       });
       card.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+      });
+    });
+
+    // 区分チップ → 仕事/プライベート/その他で絞り込み（同じチップを再クリックで解除）
+    // 期間フィルタ(statFilter)とは独立しているので併用できる
+    document.querySelectorAll('.space-chip[data-space]').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        var sp = this.dataset.space;
+        state.spaceFilter = (state.spaceFilter === sp) ? 'all' : sp;
+        document.querySelectorAll('.space-chip[data-space]').forEach(function(c) {
+          c.classList.toggle('active', c.dataset.space === state.spaceFilter);
+        });
+        renderDashboard();
+        renderView();
       });
     });
 

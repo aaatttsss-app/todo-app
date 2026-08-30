@@ -84,6 +84,50 @@ body {
   margin-bottom: 24px;
 }
 
+/* ===== 区分フィルタ（仕事/プライベート/その他。もう一度押すと解除） ===== */
+.space-filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.space-chip {
+  background: #fffbf0;
+  border: 1px dashed #e6dbc0;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #8b6e3a;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.space-chip:hover {
+  background: #fff8e1;
+  border-style: solid;
+}
+
+.space-chip--work.active {
+  background: #eaf1ff;
+  border: 1px solid #5b8def;
+  border-style: solid;
+  color: #2f5fc4;
+}
+.space-chip--private.active {
+  background: #e9f9ee;
+  border: 1px solid #34c759;
+  border-style: solid;
+  color: #1f8f3f;
+}
+.space-chip--other.active {
+  background: #f7f1e6;
+  border: 1px solid #b39b6f;
+  border-style: solid;
+  color: #7a6438;
+}
+
 /* ===== ダッシュボード ===== */
 .arch-dashboard {
   display: grid;

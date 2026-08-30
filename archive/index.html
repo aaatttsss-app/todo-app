@@ -6,7 +6,7 @@
   <title>振り返り | Todo リスト</title>
   <meta name="description" content="完了したタスクの振り返り。日付・週・月・年で見返せます。">
   <link rel="icon" href="../icons/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="archive.css?v=2">
+  <link rel="stylesheet" href="archive.css?v=3">
 </head>
 <body>
   <header class="arch-header">
@@ -21,6 +21,13 @@
   </header>
 
   <main class="arch-main">
+
+    <!-- ===== 区分フィルタ（仕事/プライベート/その他で振り返りを絞り込み） ===== -->
+    <div class="space-filter-row" id="spaceFilterRow">
+      <button class="space-chip space-chip--work" data-space="work" title="仕事だけに絞り込み">💼 仕事</button>
+      <button class="space-chip space-chip--private" data-space="private" title="プライベートだけに絞り込み">🏠 プライベート</button>
+      <button class="space-chip space-chip--other" data-space="other" title="その他だけに絞り込み">📦 その他</button>
+    </div>
 
     <!-- ===== ダッシュボード ===== -->
     <section class="arch-dashboard">
@@ -152,7 +159,7 @@
   </main>
 
   <script src="archive-sample-data.js?v=1"></script>
-  <script src="archive.js?v=3"></script>
+  <script src="archive.js?v=4"></script>
   <script src="archive-chart.js?v=1"></script>
 </body>
 </html>
