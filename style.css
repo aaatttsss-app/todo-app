@@ -833,13 +833,16 @@ body {
 .child-meta-space--private { background: #34c759; }
 .child-meta-space--other   { background: #b6a58a; }
 
-/* ===== PC / スマホ で W・C・M の表示場所を分ける ===== */
-/* PC（641px以上）: タスク行に常時表示。展開時のメタ行のW/C/Mは重複するため隠す（区分バッジは残す） */
-@media (min-width: 641px) {
+/* ===== 画面幅で W・C・M の表示場所を分ける =====
+   広い画面（901px以上）: タスク行に常時表示。展開時のメタ行のW/C/Mは重複するため隠す（区分バッジは残す）
+   狭い画面（900px以下）: タスク行からは隠し、展開時のメタ行にのみ表示
+   ※ 640px はカテゴリの2列/1列グリッドの境界だが、WCMはそれとは別に900pxで切り替える。
+   　 タブレット縦向き（768〜834px前後）は2列グリッドのままだと1列の幅が狭く、
+   　 行内にWCMを出すとタスク名がほぼ読めなくなるため。 */
+@media (min-width: 901px) {
   .child-meta-row > .task-flags { display: none; }
 }
-/* スマホ（640px以下）: タスク行からは隠し、展開時のメタ行にのみ表示 */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .task-item > .task-flags { display: none; }
 }
 
@@ -1514,14 +1517,17 @@ body {
 /* ==================================================================== */
 
 /* 長押し時のテキスト選択・コールアウトを抑止。
-   touch-action: none が無いと、Windows/Android等のChromium系ブラウザは
-   タッチ移動を「ブラウザ標準のスクロール」として先取りしてしまい、
-   JS側の長押しドラッグ処理まで到達しないことがある（iOS Safariは比較的寛容で気づきにくい）。 */
+   touch-action は none ではなく pan-y にする：
+   「縦スクロールはブラウザの標準動作に任せ、長押しドラッグが実際に始まった時だけ
+   JS側（setupTouchDrag の blockScroll）が touchmove を preventDefault して制御を奪う」
+   という組み合わせが正しい。none にすると、タスクの上で始まったタッチは
+   ドラッグと判定される前の時点でブラウザのスクロール権利そのものが失われ、
+   「タスクの上に触れるとスクロールできない」不具合になる。 */
 .task-row {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 /* 指に追従する半透明カード */
