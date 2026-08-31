@@ -942,9 +942,19 @@ function buildParentTaskEl(data, task) {
     item.appendChild(spaceDot);
   }
 
+  // 期日バッジ（本日〜そのうち）はテキストより左に置く。一目で「いつのタスクか」が分かるように
+  if (task.dueDate && (task.category === 'today' || task.category === 'tomorrow' ||
+      task.category === 'soon' || task.category === 'someday')) {
+    var dueSpan = document.createElement('span');
+    dueSpan.className = 'task-date task-date--due';
+    dueSpan.title = '期日: ' + task.dueDate;
+    dueSpan.textContent = '📅 ' + task.dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$2/$3');
+    item.appendChild(dueSpan);
+  }
+
   item.appendChild(textSpan);
 
-  // 日付表示（未処理・処理済みのみ）
+  // 日付表示（未処理・処理済みのみ。右側に表示）
   if (task.category === 'unprocessed' || task.category === 'done') {
     var dateSpan = document.createElement('span');
     dateSpan.className = 'task-date';
@@ -957,14 +967,6 @@ function buildParentTaskEl(data, task) {
     }
     dateSpan.textContent = dateStr;
     item.appendChild(dateSpan);
-  } else if (task.dueDate && (task.category === 'today' || task.category === 'tomorrow' ||
-      task.category === 'soon' || task.category === 'someday')) {
-    // 期日つきタスク（本日〜そのうち）は期日を表示。完了日/追加日と紛れないよう📅を付ける
-    var dueSpan = document.createElement('span');
-    dueSpan.className = 'task-date task-date--due';
-    dueSpan.title = '期日: ' + task.dueDate;
-    dueSpan.textContent = '📅 ' + task.dueDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$2/$3');
-    item.appendChild(dueSpan);
   }
 
   // Will/Can/Must（PC版は行内に常時表示。スマホ版はCSSで隠し、展開時のメタ行にのみ表示）
