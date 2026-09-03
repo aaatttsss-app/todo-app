@@ -2123,6 +2123,18 @@ function setupEvents(data) {
     });
   });
 
+  // 未処理を一括で本日へ戻す（未処理→本日への手動移動が多発していたための時短ボタン）
+  var moveAllToTodayBtn = document.getElementById('moveAllToTodayBtn');
+  if (moveAllToTodayBtn) {
+    moveAllToTodayBtn.addEventListener('click', function() {
+      var targets = data.tasks.filter(function(t) { return t.category === 'unprocessed' && t.parentId === null; });
+      if (targets.length === 0) return;
+      targets.forEach(function(t) { moveParentToCategory(data, t, 'today'); });
+      saveData(data);
+      renderAll(data);
+    });
+  }
+
   // Cmd+Z / Ctrl+Z で削除を元に戻す
   document.addEventListener('keydown', function(e) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'z') {

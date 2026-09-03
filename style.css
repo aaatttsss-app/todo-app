@@ -194,6 +194,25 @@ body {
   border-color: #ff3b30;
 }
 
+.move-all-btn {
+  background: none;
+  border: 1px solid #a0c4ff;
+  color: #007aff;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 3px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+  margin-right: 6px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.move-all-btn:hover {
+  background: #007aff;
+  color: #fff;
+  border-color: #007aff;
+}
+
 .task-date {
   font-size: 12px;
   color: #bbb;
@@ -944,7 +963,8 @@ body {
   .task-delete-btn,
   .task-expand-btn,
   .copy-cat-btn,
-  .clear-all-btn {
+  .clear-all-btn,
+  .move-all-btn {
     display: none !important;
   }
 
@@ -1118,10 +1138,12 @@ body {
 /* --- ボタン類: 角を丸く、絵文字を添える --- */
 .copy-cat-btn::before { content: "📋 "; }
 .clear-all-btn::before  { content: "🗑 "; }
+.move-all-btn::before   { content: "☀️ "; }
 .task-add-btn::before   { content: "➕ "; }
 
 .copy-cat-btn,
 .clear-all-btn,
+.move-all-btn,
 .task-add-btn,
 .header-print-btn {
   border-radius: 999px;
@@ -1176,6 +1198,7 @@ body {
   .category-title::before,
   .copy-cat-btn::before,
   .clear-all-btn::before,
+  .move-all-btn::before,
   .task-add-btn::before {
     content: none !important;
   }
