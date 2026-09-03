@@ -912,6 +912,83 @@ body {
   padding: 4px 8px;
 }
 
+/* ===== 強調（⭐）: 子タスクを目立たせるボタンと、畳んだままのプレビュー ===== */
+.task-highlight-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0.28;
+  filter: grayscale(1);
+  transition: opacity 0.15s, filter 0.15s, background 0.15s;
+}
+
+.task-item--child:hover .task-highlight-btn {
+  opacity: 0.6;
+  filter: grayscale(0.4);
+}
+
+.task-highlight-btn:hover {
+  opacity: 1 !important;
+  filter: grayscale(0) !important;
+  background: #fff6d8;
+}
+
+.task-highlight-btn--on {
+  opacity: 1;
+  filter: grayscale(0);
+}
+
+/* 強調した子タスクの行そのものを目立つ色に */
+.task-item--child.task-item--highlighted {
+  background: #fff8e0;
+  border-radius: 6px;
+}
+
+/* 親を畳んだ状態で見える、強調した子タスクだけのミニ一覧 */
+.highlight-preview {
+  background: #fffbee;
+  border-top: 1px dashed #f0dfa0;
+  border-left: 3px solid #ffcc00;
+  margin-left: 26px;
+  border-radius: 0 0 0 6px;
+}
+
+.highlight-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+}
+
+.highlight-preview-item .task-check-btn {
+  width: 16px;
+  height: 16px;
+}
+
+.highlight-preview-item .task-check-btn--checked::after {
+  top: 2px;
+  left: 4px;
+  width: 5px;
+  height: 7px;
+}
+
+.highlight-preview-item .task-text {
+  flex: 1;
+  font-size: 15px;
+  min-width: 0;
+}
+
+.highlight-preview-item .task-highlight-btn {
+  opacity: 1;
+  filter: grayscale(0);
+  margin-left: auto;
+}
+
 /* ===== Drag & Drop ===== */
 .task-wrapper {
   cursor: grab;

@@ -57,7 +57,8 @@ function createTask(text, category) {
     createdAt: new Date().toISOString(),
     flags: { will: false, can: false, must: false },
     space: 'other',
-    dueDate: null   // 'YYYY-MM-DD' or null。設定されていれば日々の自動フローの対象になる
+    dueDate: null,      // 'YYYY-MM-DD' or null。設定されていれば日々の自動フローの対象になる
+    highlighted: false  // 子タスクの強調（⭐）。親を畳んだままでも強調した子だけプレビュー表示する
   };
 }
 
@@ -78,6 +79,14 @@ function toggleFlag(data, id, key) {
   if (!task) return;
   if (!task.flags) task.flags = { will: false, can: false, must: false };
   task.flags[key] = !task.flags[key];
+  saveData(data);
+}
+
+// 子タスクの強調（⭐）を切り替える。親を畳んだままでも強調した子だけをプレビュー表示するために使う
+function toggleHighlight(data, id) {
+  var task = findTask(data, id);
+  if (!task) return;
+  task.highlighted = !task.highlighted;
   saveData(data);
 }
 
@@ -1012,9 +1021,58 @@ function buildParentTaskEl(data, task) {
   if (isExpanded) {
     var childSection = buildChildSection(data, task);
     wrapper.appendChild(childSection);
+  } else {
+    // 畳んだままでも、強調(⭐)した子タスクだけは覗けるようにする
+    var highlightedChildren = task.children
+      .map(function(id) { return findTask(data, id); })
+      .filter(function(c) { return c && c.highlighted; });
+    if (highlightedChildren.length > 0) {
+      wrapper.appendChild(buildHighlightPreview(data, task, highlightedChildren));
+    }
   }
 
   return wrapper;
+}
+
+// 親を畳んだ状態で表示する、強調済み子タスクだけのミニ一覧。
+// 目的はあくまで「今日どれをやるか」を一目で分かるようにすることなので、
+// チェック（完了）と星（強調解除）だけに絞り、削除ボタンは置かない（誤操作防止・展開すれば操作可）
+function buildHighlightPreview(data, parentTask, highlightedChildren) {
+  var section = document.createElement('div');
+  section.className = 'highlight-preview';
+
+  highlightedChildren.forEach(function(child) {
+    var row = document.createElement('div');
+    row.className = 'highlight-preview-item' + (child.completed ? ' task-item--completed' : '');
+
+    var checkbox = document.createElement('button');
+    checkbox.className = 'task-check-btn' + (child.completed ? ' task-check-btn--checked' : '');
+    checkbox.title = child.completed ? '未完了に戻す' : '完了にする';
+    checkbox.addEventListener('click', function() {
+      toggleComplete(data, child.id);
+      renderAll(data);
+    });
+
+    var textSpan = document.createElement('span');
+    textSpan.className = 'task-text';
+    textSpan.textContent = child.text;
+
+    var unhighlightBtn = document.createElement('button');
+    unhighlightBtn.className = 'task-highlight-btn task-highlight-btn--on';
+    unhighlightBtn.textContent = '⭐';
+    unhighlightBtn.title = '強調を解除';
+    unhighlightBtn.addEventListener('click', function() {
+      toggleHighlight(data, child.id);
+      renderAll(data);
+    });
+
+    row.appendChild(checkbox);
+    row.appendChild(textSpan);
+    row.appendChild(unhighlightBtn);
+    section.appendChild(row);
+  });
+
+  return section;
 }
 
 function buildChildSection(data, parentTask) {
@@ -1152,7 +1210,9 @@ function buildChildSection(data, parentTask) {
 
 function buildChildTaskEl(data, child, parentTask) {
   var item = document.createElement('div');
-  item.className = 'task-item task-item--child' + (child.completed ? ' task-item--completed' : '');
+  item.className = 'task-item task-item--child' +
+    (child.completed ? ' task-item--completed' : '') +
+    (child.highlighted ? ' task-item--highlighted' : '');
   item.dataset.taskId = child.id;
   item.draggable = true;
 
@@ -1191,6 +1251,16 @@ function buildChildTaskEl(data, child, parentTask) {
     startInlineEdit(data, child, textSpan, item);
   });
 
+  var highlightBtn = document.createElement('button');
+  highlightBtn.className = 'task-highlight-btn' + (child.highlighted ? ' task-highlight-btn--on' : '');
+  highlightBtn.textContent = '⭐';
+  highlightBtn.title = child.highlighted ? '強調を解除' : '強調する（畳んでもこの子タスクだけ表示されます）';
+  highlightBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleHighlight(data, child.id);
+    renderAll(data);
+  });
+
   var deleteBtn = document.createElement('button');
   deleteBtn.className = 'task-delete-btn';
   deleteBtn.textContent = '×';
@@ -1202,6 +1272,7 @@ function buildChildTaskEl(data, child, parentTask) {
 
   item.appendChild(checkbox);
   item.appendChild(textSpan);
+  item.appendChild(highlightBtn);
   item.appendChild(deleteBtn);
   return item;
 }
