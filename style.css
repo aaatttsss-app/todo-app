@@ -858,10 +858,16 @@ body {
 .child-meta-space--private { background: #34c759; }
 .child-meta-space--other   { background: #b6a58a; }
 
-/* ===== W・C・M はタスク行には出さず、展開時のメタ行（子タスク一覧の一つ上）にのみ表示 =====
+/* ===== W・C・M はタスク行には出さず、展開時のメタ行（子タスク一覧の一つ上）にのみ全部表示 =====
    期日バッジ等でタスク行が窮屈になってきたため、画面幅にかかわらず
-   「展開して初めて見える」形に統一した（区分バッジは元々メタ行のみ）。 */
-.task-item > .task-flags { display: none; }
+   「展開して初めて見える」形に統一した（区分バッジは元々メタ行のみ）。
+   ただし押した(ON)ものだけは、畳んだ行の右端にも残す（押したことを忘れないように）。 */
+.task-item > .task-flags .task-flag-btn:not(.task-flag-btn--on) {
+  display: none;
+}
+.task-item > .task-flags:not(:has(.task-flag-btn--on)) {
+  display: none;
+}
 
 .child-list:empty::before {
   content: "子タスクなし";
