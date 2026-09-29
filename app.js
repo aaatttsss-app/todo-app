@@ -1354,6 +1354,11 @@ function toggleCalendarView(data) {
   if (toggleBtn) {
     toggleBtn.classList.toggle('header-calendar-btn--active', calendarViewActive);
     toggleBtn.title = calendarViewActive ? 'いつものリスト表示に戻る' : 'カレンダー表示に切り替え';
+    // カレンダー表示中は「戻る」に変える（📅のままだと、もう一度押すと何が起きるか分かりにくい）
+    var icon = document.getElementById('calendarToggleIcon');
+    var text = document.getElementById('calendarToggleText');
+    if (icon) icon.textContent = calendarViewActive ? '↩️' : '📅';
+    if (text) text.textContent = calendarViewActive ? ' 戻る' : ' カレンダー';
   }
 
   if (calendarViewActive) renderCalendarView(data);
@@ -1369,26 +1374,35 @@ function countDueByDate(data) {
   return counts;
 }
 
+// 表示中の月とその翌月を並べて描画する（ヒートマップの濃さは2か月を通して比較できるよう共通の最大値で決める）
 function renderCalendarView(data) {
-  var month = calendarState.month;
-  var titleEl = document.getElementById('calTitle');
-  if (titleEl) titleEl.textContent = month.getFullYear() + '年 ' + (month.getMonth() + 1) + '月';
+  var month  = calendarState.month;
+  var month2 = new Date(month.getFullYear(), month.getMonth() + 1, 1);
 
   var counts = countDueByDate(data);
-  var mStart = monthStart(month);
-  var mEnd = monthEnd(month);
-  var maxInMonth = 0;
+  var rangeStart = monthStart(month);
+  var rangeEnd   = monthEnd(month2);
+  var maxCount = 0;
   Object.keys(counts).forEach(function(k) {
     var d = new Date(k + 'T00:00:00');
-    if (d >= mStart && d <= mEnd && counts[k] > maxInMonth) maxInMonth = counts[k];
+    if (d >= rangeStart && d <= rangeEnd && counts[k] > maxCount) maxCount = counts[k];
   });
+
+  renderCalMonth(data, month,  'calTitle',  'calGrid',  counts, maxCount);
+  renderCalMonth(data, month2, 'calTitle2', 'calGrid2', counts, maxCount);
+  renderCalDayPanel(data);
+}
+
+function renderCalMonth(data, month, titleId, gridId, counts, maxInMonth) {
+  var titleEl = document.getElementById(titleId);
+  if (titleEl) titleEl.textContent = month.getFullYear() + '年 ' + (month.getMonth() + 1) + '月';
 
   var firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
   var dow = firstDay.getDay();
   var leadingBlanks = dow === 0 ? 6 : dow - 1;  // 週の始まりを月曜にそろえる
-  var lastDate = mEnd.getDate();
+  var lastDate = monthEnd(month).getDate();
 
-  var grid = document.getElementById('calGrid');
+  var grid = document.getElementById(gridId);
   if (!grid) return;
   grid.innerHTML = '';
 
@@ -1424,11 +1438,12 @@ function renderCalendarView(data) {
     cell.addEventListener('click', function() {
       calendarState.selectedDate = this.dataset.date;
       renderCalendarView(data);
+      // 2か月ぶん縦に並ぶスマホ幅でも、選んだ日のタスク欄が見えるように寄せる
+      var panel = document.querySelector('.cal-day-panel');
+      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
     grid.appendChild(cell);
   }
-
-  renderCalDayPanel(data);
 }
 
 function renderCalDayPanel(data) {
